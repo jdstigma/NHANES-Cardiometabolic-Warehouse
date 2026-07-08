@@ -55,9 +55,10 @@ TYPE_MAP = {
     "object":  ("string",  "type text"),
 }
 
-# safe, single-table measures (attached to their home table). The cross-table
-# care-gap measures stay in powerbi/measures.md for manual paste — they're more
-# error-prone and a bad measure blocks the whole model from loading.
+# safe, single-table measures (attached to their home table). Cross-table DAX
+# is avoided — a bad measure blocks the whole model from loading — so anything
+# needing multiple tables (e.g. care gaps) is precomputed in the pipeline and
+# summed here instead.
 MEASURES = {
     "dim_respondents": [
         ("Respondents", "COUNTROWS ( dim_respondents )", None),
@@ -71,6 +72,12 @@ MEASURES = {
         ("Overweight Plus Rate",
          "DIVIDE ( COUNTROWS ( FILTER ( fact_body_measures, fact_body_measures[bmi] >= 25 ) ), [BMI Measured] )",
          "0.0%"),
+        ("Avg BMI", "AVERAGE ( fact_body_measures[bmi] )", "0.0"),
+        ("Avg Waist (cm)", "AVERAGE ( fact_body_measures[waist_cm] )", "0.0"),
+    ],
+    "fact_blood_pressure": [
+        ("Avg Systolic", "AVERAGE ( fact_blood_pressure[mean_systolic] )", "0.0"),
+        ("Avg Diastolic", "AVERAGE ( fact_blood_pressure[mean_diastolic] )", "0.0"),
     ],
     "fact_labs": [
         ("HbA1c Measured",
@@ -81,6 +88,9 @@ MEASURES = {
         ("Diabetic-Range Rate",
          "DIVIDE ( COUNTROWS ( FILTER ( fact_labs, fact_labs[hba1c] >= 6.5 ) ), [HbA1c Measured] )",
          "0.0%"),
+        ("Avg Fasting Glucose", "AVERAGE ( fact_labs[fasting_glucose] )", "0.0"),
+        ("Avg HbA1c", "AVERAGE ( fact_labs[hba1c] )", "0.00"),
+        ("Avg LDL", "AVERAGE ( fact_labs[ldl_cholesterol] )", "0.0"),
     ],
     "fact_anomalies": [
         ("Flagged Anomalies", "COUNTROWS ( fact_anomalies )", None),
@@ -297,17 +307,85 @@ def build_caregaps_visuals() -> list:
     ]
 
 
+def build_anomaly_detail_visuals() -> list:
+    """Page 4 — Anomaly Detail: where the peer-group outliers concentrate."""
+    return [
+        _visual("card_flagged", "cardVisual", 20, 20, 400, 120, 1000,
+                {"Data": {"projections": [_field("Measure", "fact_anomalies", "Flagged Anomalies")]}}),
+        _visual("card_any_anomaly", "cardVisual", 440, 20, 400, 120, 2000,
+                {"Data": {"projections": [_field("Measure", "fact_anomalies", "Respondents With Any Anomaly")]}}),
+        _visual("bar_anom_by_field", "clusteredBarChart", 20, 160, 610, 540, 3000,
+                {"Category": {"projections": [_field("Column", "fact_anomalies", "field_label")]},
+                 "Y": {"projections": [_field("Measure", "fact_anomalies", "Flagged Anomalies")]}},
+                sort_field=("Measure", "fact_anomalies", "Flagged Anomalies")),
+        _visual("bar_anom_by_age", "clusteredBarChart", 650, 160, 610, 260, 4000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_anomalies", "Flagged Anomalies")]}}),
+        _visual("bar_anom_by_gender", "clusteredBarChart", 650, 440, 610, 260, 5000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "gender")]},
+                 "Y": {"projections": [_field("Measure", "fact_anomalies", "Flagged Anomalies")]}}),
+    ]
+
+
+def build_clinical_averages_visuals() -> list:
+    """Page 5 — Clinical Averages by Demographics: mean biomarkers by group
+    (AVERAGE measures; a raw column in a value well renders blank)."""
+    return [
+        _visual("card_avg_bmi", "cardVisual", 20, 20, 400, 120, 1000,
+                {"Data": {"projections": [_field("Measure", "fact_body_measures", "Avg BMI")]}}),
+        _visual("card_avg_systolic", "cardVisual", 440, 20, 400, 120, 2000,
+                {"Data": {"projections": [_field("Measure", "fact_blood_pressure", "Avg Systolic")]}}),
+        _visual("card_avg_hba1c", "cardVisual", 860, 20, 400, 120, 3000,
+                {"Data": {"projections": [_field("Measure", "fact_labs", "Avg HbA1c")]}}),
+        _visual("bar_avg_bmi_age", "clusteredBarChart", 20, 160, 610, 260, 4000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_body_measures", "Avg BMI")]}}),
+        _visual("bar_avg_systolic_age", "clusteredBarChart", 650, 160, 610, 260, 5000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_blood_pressure", "Avg Systolic")]}}),
+        _visual("bar_avg_glucose_age", "clusteredBarChart", 20, 440, 610, 260, 6000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_labs", "Avg Fasting Glucose")]}}),
+        _visual("bar_avg_hba1c_gender", "clusteredBarChart", 650, 440, 610, 260, 7000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "gender")]},
+                 "Y": {"projections": [_field("Measure", "fact_labs", "Avg HbA1c")]}}),
+    ]
+
+
 # (page_id, display name, visuals) — page_id is the folder name; first is active
 PAGES = [
     ("overview", "Overview", build_overview_visuals),
     ("demographics", "Prevalence by Demographics", build_demographics_visuals),
     ("caregaps", "Care Gaps by Demographics", build_caregaps_visuals),
+    ("anomalies", "Anomaly Detail", build_anomaly_detail_visuals),
+    ("averages", "Clinical Averages by Demographics", build_clinical_averages_visuals),
 ]
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate the NHANES Power BI project (PBIP).")
+    parser.add_argument(
+        "--force", action="store_true",
+        help="Overwrite an existing generated project. WARNING: this regenerates "
+             "the report and DISCARDS any pages/visuals you added by hand in Power "
+             "BI Desktop. A data refresh does NOT need this — just re-run "
+             "build_dataset.py and click Refresh in Power BI.",
+    )
+    args = parser.parse_args()
+
     if not EXPORTS.exists() or not (EXPORTS / "dim_respondents.csv").exists():
         raise SystemExit("exports/ is missing — run `python scripts/build_dataset.py` first.")
+
+    if (PROJECT_DIR / f"{NAME}.pbip").exists() and not args.force:
+        raise SystemExit(
+            f"{PROJECT_DIR / (NAME + '.pbip')} already exists.\n"
+            "Regenerating overwrites the report and would DISCARD any pages/visuals "
+            "you added by hand in Power BI Desktop.\n"
+            "  - If you only changed the DATA: re-run scripts/build_dataset.py and "
+            "click Refresh in Power BI (no need to regenerate the project).\n"
+            "  - To intentionally rebuild the project from scratch: pass --force."
+        )
 
     # Remove stale report artifacts from earlier format attempts so a leftover
     # file can't confuse Desktop (e.g. a legacy report.json sitting next to the

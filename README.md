@@ -75,13 +75,24 @@ Two legacy files are also written for backward compatibility with an existing `.
 
 ### Fast path — generate a ready-made Power BI project (2 steps)
 
-`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all seven star-schema tables, the `SEQN` relationships, the headline DAX measures, and a **two-page report with 12 starter visuals** — so you don't have to import each CSV or build the model and report by hand:
+`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all eight star-schema tables, the `SEQN` relationships, the DAX measures, and a **five-page report with 31 starter visuals** — so you don't have to import each CSV or build the model and report by hand:
 
 - **Overview**: KPI cards (Respondents, Obesity Rate, Diabetic-Range Rate), a bar of every headline metric, and flagged anomalies by category.
-- **Prevalence by Demographics**: cards (Overweight+, Prediabetes, respondents-with-anomaly) plus obesity/diabetic/prediabetes rates broken out by age band and gender.
-- **Care Gaps by Demographics**: the undiagnosed-condition rates (hypertension, high cholesterol, diabetes) as cards and split by age band / gender — the project's standout finding.
+- **Prevalence by Demographics**: cards (Overweight+, Prediabetes, respondents-with-anomaly) plus obesity/diabetic/prediabetes rates by age band and gender.
+- **Care Gaps by Demographics**: undiagnosed-condition rates (hypertension, high cholesterol, diabetes) as cards and split by age band / gender — the standout finding.
+- **Anomaly Detail**: flagged-anomaly counts by field, age band, and gender.
+- **Clinical Averages by Demographics**: mean BMI / systolic BP / fasting glucose / HbA1c by age band and gender.
 
 All visuals use measures baked into the model. The undiagnosed care-gap rates are computed as simple single-table measures over the precomputed `fact_care_gaps` flags (rather than fragile cross-table DAX), so they're safe to bake in and render out of the box.
+
+### Adding your own pages, and refreshing data
+
+Once you customize the report in Power BI Desktop, keep two things straight:
+
+- **Refreshing data is safe.** Re-run `python scripts/build_dataset.py` and click **Refresh** in Power BI — this only rewrites the `exports/` CSVs and never touches your report. Any pages/visuals you added by hand are preserved.
+- **Re-running the project generator overwrites the report.** `build_powerbi_project.py` regenerates the whole report definition, so it would discard hand-built pages. To prevent accidents it now **refuses to overwrite an existing project unless you pass `--force`**. Only use `--force` when you deliberately want to rebuild from scratch.
+
+The generated `.pbip` is git-ignored (it bakes in a machine-specific path), so your local customizations aren't tracked by default. If you want to version your hand-built report, either commit the `NHANES.Report/` folder explicitly (`git add -f`) or keep your custom pages as a separate `.pbix`.
 
 ```bash
 python scripts/build_dataset.py          # 1. build exports/*.csv
