@@ -1,16 +1,22 @@
 """
 Single-script pipeline: download NHANES 2021-2023 cardiometabolic data,
-merge into one respondent-level table, flag statistical outliers, and
-export CSVs for Power BI.
+merge on respondent ID, flag statistical outliers, and export a star
+schema of CSVs for Power BI.
 
 No database, no Codespaces — everything runs locally.
 
 Usage:
   python scripts/build_dataset.py
 
-Outputs (in exports/):
-  nhanes_respondents.csv      one row per respondent, all fields + z-scores
-  nhanes_peer_group_summary.csv   aggregated by age band + gender
+Outputs (in exports/), all keyed on SEQN:
+  dim_respondents.csv          1 row/respondent: demographics
+  fact_body_measures.csv       1 row/respondent: weight/height/BMI/waist + outlier flags
+  fact_blood_pressure.csv      1 row/respondent: mean systolic/diastolic + outlier flags
+  fact_labs.csv                1 row/respondent: lipids/glucose/HbA1c/insulin + outlier flags
+  fact_diagnoses.csv           1 row/respondent: self-reported diagnosis history
+  fact_anomalies.csv           1 row per flagged (respondent, field) — long format
+  nhanes_respondents.csv       legacy wide table (kept for the original .pbix)
+  nhanes_peer_group_summary.csv  legacy aggregate by age band + gender
 
 Data source: CDC NHANES August 2021-August 2023 cycle (file suffix _L).
 https://wwwn.cdc.gov/nchs/nhanes/search/DataPage.aspx
@@ -97,6 +103,21 @@ ANOMALY_FIELDS = [
     "total_cholesterol", "hdl_cholesterol", "triglycerides", "ldl_cholesterol",
     "fasting_glucose", "hba1c", "insulin",
 ]
+
+# field -> (human-readable label, mart category) for fact_anomalies
+FIELD_METADATA = {
+    "bmi": ("BMI", "Body Measures"),
+    "waist_cm": ("Waist Circumference (cm)", "Body Measures"),
+    "mean_systolic": ("Systolic BP (mmHg)", "Blood Pressure"),
+    "mean_diastolic": ("Diastolic BP (mmHg)", "Blood Pressure"),
+    "total_cholesterol": ("Total Cholesterol (mg/dL)", "Labs"),
+    "hdl_cholesterol": ("HDL Cholesterol (mg/dL)", "Labs"),
+    "triglycerides": ("Triglycerides (mg/dL)", "Labs"),
+    "ldl_cholesterol": ("LDL Cholesterol (mg/dL)", "Labs"),
+    "fasting_glucose": ("Fasting Glucose (mg/dL)", "Labs"),
+    "hba1c": ("HbA1c (%)", "Labs"),
+    "insulin": ("Insulin (uU/mL)", "Labs"),
+}
 
 AGE_BINS = [-1, 11, 17, 29, 44, 59, 74, 150]
 AGE_LABELS = ["0-11", "12-17", "18-29", "30-44", "45-59", "60-74", "75+"]
@@ -204,6 +225,72 @@ def build_peer_group_summary(df: pd.DataFrame) -> pd.DataFrame:
     return summary
 
 
+def build_dim_respondents(df: pd.DataFrame) -> pd.DataFrame:
+    """Star-schema dimension: one row per respondent, demographics only."""
+    return df[[
+        "SEQN", "age_years", "age_band", "gender", "race_ethnicity",
+        "education", "income_poverty_ratio",
+    ]].copy()
+
+
+def build_fact_body_measures(df: pd.DataFrame) -> pd.DataFrame:
+    return df[[
+        "SEQN", "weight_kg", "height_cm",
+        "bmi", "bmi_zscore", "bmi_is_outlier",
+        "waist_cm", "waist_cm_zscore", "waist_cm_is_outlier",
+    ]].copy()
+
+
+def build_fact_blood_pressure(df: pd.DataFrame) -> pd.DataFrame:
+    return df[[
+        "SEQN",
+        "mean_systolic", "mean_systolic_zscore", "mean_systolic_is_outlier",
+        "mean_diastolic", "mean_diastolic_zscore", "mean_diastolic_is_outlier",
+    ]].copy()
+
+
+def build_fact_labs(df: pd.DataFrame) -> pd.DataFrame:
+    lab_fields = [
+        "total_cholesterol", "hdl_cholesterol", "triglycerides",
+        "ldl_cholesterol", "fasting_glucose", "hba1c", "insulin",
+    ]
+    cols = ["SEQN"]
+    for f in lab_fields:
+        cols += [f, f"{f}_zscore", f"{f}_is_outlier"]
+    return df[cols].copy()
+
+
+def build_fact_diagnoses(df: pd.DataFrame) -> pd.DataFrame:
+    return df[[
+        "SEQN", "diabetes_diagnosis", "high_bp_diagnosis", "high_cholesterol_diagnosis",
+        "smoked_100_cigarettes", "current_smoking",
+        "coronary_heart_disease", "heart_attack", "stroke",
+    ]].copy()
+
+
+def build_fact_anomalies(df: pd.DataFrame) -> pd.DataFrame:
+    """Long format: one row per (respondent, field) that's flagged as an
+    outlier, rather than wide boolean columns — much easier to slice by
+    field/category/demographic in Power BI. Joins back to dim_respondents
+    on SEQN for demographic slicing (1-respondent-to-many-anomalies)."""
+    rows = []
+    for field, (label, category) in FIELD_METADATA.items():
+        flagged = df[df[f"{field}_is_outlier"]]
+        if flagged.empty:
+            continue
+        rows.append(pd.DataFrame({
+            "SEQN": flagged["SEQN"].values,
+            "field": field,
+            "field_label": label,
+            "field_category": category,
+            "value": flagged[field].values,
+            "zscore": flagged[f"{field}_zscore"].values,
+        }))
+    if not rows:
+        return pd.DataFrame(columns=["SEQN", "field", "field_label", "field_category", "value", "zscore"])
+    return pd.concat(rows, ignore_index=True)
+
+
 def main():
     df = build_merged_table()
     df = add_derived_fields(df)
@@ -211,15 +298,31 @@ def main():
     summary = build_peer_group_summary(df)
 
     EXPORT_DIR.mkdir(exist_ok=True)
-    respondents_out = EXPORT_DIR / "nhanes_respondents.csv"
-    summary_out = EXPORT_DIR / "nhanes_peer_group_summary.csv"
-    df.to_csv(respondents_out, index=False)
-    summary.to_csv(summary_out, index=False)
 
-    print(f"\n{len(df):,} respondents -> {respondents_out}")
+    # kept for backward compatibility with the existing .pbix built on
+    # the single wide table — the star-schema marts below are additive.
+    df.to_csv(EXPORT_DIR / "nhanes_respondents.csv", index=False)
+    summary.to_csv(EXPORT_DIR / "nhanes_peer_group_summary.csv", index=False)
+
+    marts = {
+        "dim_respondents": build_dim_respondents(df),
+        "fact_body_measures": build_fact_body_measures(df),
+        "fact_blood_pressure": build_fact_blood_pressure(df),
+        "fact_labs": build_fact_labs(df),
+        "fact_diagnoses": build_fact_diagnoses(df),
+        "fact_anomalies": build_fact_anomalies(df),
+    }
+    for name, mart_df in marts.items():
+        mart_df.to_csv(EXPORT_DIR / f"{name}.csv", index=False)
+
+    print(f"\n{len(df):,} respondents")
     print(f"{df['is_any_anomaly'].sum():,} flagged with at least one outlier field "
           f"({df['is_any_anomaly'].mean():.1%})")
-    print(f"{len(summary)} peer groups -> {summary_out}")
+    print(f"\nMarts written to {EXPORT_DIR}/:")
+    for name, mart_df in marts.items():
+        print(f"  {name:<22} {len(mart_df):>6,} rows")
+    print(f"  {'nhanes_respondents':<22} {len(df):>6,} rows  (legacy wide table)")
+    print(f"  {'nhanes_peer_group_summary':<22} {len(summary):>6,} rows  (legacy)")
     print("\nDone. Get Data -> Text/CSV in Power BI, pointed at the exports/ folder.")
 
 
