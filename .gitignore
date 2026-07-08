@@ -8,3 +8,13 @@ __pycache__/
 .DS_Store
 notebooks/executed_exploration.ipynb
 notebooks/executed_exploration.html
+
+# Generated Power BI project (build artifact — bakes in an absolute path;
+# regenerate with `python scripts/build_powerbi_project.py`). measures.md,
+# which is hand-written, stays tracked.
+powerbi/NHANES.pbip
+powerbi/NHANES.SemanticModel/
+powerbi/NHANES.Report/
+# Power BI Desktop local/cache files, created when the project is opened
+**/.pbi/
+**/*.abf

@@ -70,6 +70,24 @@ Two legacy files are also written for backward compatibility with an existing `.
 
 ## Connecting Power BI
 
+### Fast path — generate a ready-made Power BI project (2 steps)
+
+`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all seven star-schema tables, the `SEQN` relationships, and the headline DAX measures already wired up — so you don't have to import each CSV or build the model by hand:
+
+```bash
+python scripts/build_dataset.py          # 1. build exports/*.csv
+python scripts/build_powerbi_project.py  # 2. generate powerbi/NHANES.pbip
+# then open powerbi/NHANES.pbip in Power BI Desktop
+```
+
+Before opening, enable two Power BI Desktop **Preview features** (File → Options and settings → Options → Preview features): *"Store semantic model using TMDL format"* and *"Store reports using enhanced metadata format (PBIR)"*. The model reads the CSVs by absolute path baked in at generation time — if you move the repo, re-run step 2 (or edit the `ExportsFolder` parameter in Power Query).
+
+> ⚠️ **Untested end-to-end.** The `.pbip` format is version-sensitive and this generator was built from Microsoft's docs without a Power BI Desktop available to confirm it loads. If Desktop reports a load error it will name the offending file — treat that as the thing to fix. The manual path below always works as a fallback.
+
+The generated project is git-ignored (it bakes in a machine-specific path); regenerate it locally rather than committing it. The complex cross-table care-gap measures are *not* baked in (a bad measure blocks the whole model from loading) — paste those from [`powerbi/measures.md`](powerbi/measures.md) after the project opens.
+
+### Manual path (always works)
+
 1. Run `python scripts/build_dataset.py` (above).
 2. Power BI Desktop → **Get Data → Text/CSV** → import each `dim_*`/`fact_*` CSV from `exports/`, plus `metrics_summary.csv` for KPI cards.
 3. In **Model view**, create relationships: `dim_respondents[SEQN]` (one) → each `fact_*[SEQN]` (many, even though body_measures/blood_pressure/labs/diagnoses happen to be 1:1 in practice — Power BI still models it as one-to-many from the dimension side). `fact_anomalies[SEQN]` is a genuine many relationship. `metrics_summary` stands alone (no relationship — it's already aggregated).
