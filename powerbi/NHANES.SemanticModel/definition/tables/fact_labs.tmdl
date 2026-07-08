@@ -1,0 +1,167 @@
+table fact_labs
+	lineageTag: 7c350d48-1b75-4cd9-89ae-eecb705c7279
+
+	measure 'HbA1c Measured' = COUNTROWS ( FILTER ( fact_labs, NOT ( ISBLANK ( fact_labs[hba1c] ) ) ) )
+		lineageTag: b9b63ba8-43a4-4cb3-a7e3-eb91eedf8e83
+
+	measure 'Prediabetes Rate' = DIVIDE ( COUNTROWS ( FILTER ( fact_labs, fact_labs[hba1c] >= 5.7 && fact_labs[hba1c] < 6.5 ) ), [HbA1c Measured] )
+		formatString: 0.0%
+		lineageTag: 456455ea-b997-4cff-a222-2f450e765704
+
+	measure 'Diabetic-Range Rate' = DIVIDE ( COUNTROWS ( FILTER ( fact_labs, fact_labs[hba1c] >= 6.5 ) ), [HbA1c Measured] )
+		formatString: 0.0%
+		lineageTag: 1aa8ae2f-418e-413e-ad82-ec72f72024c6
+
+	measure 'Avg Fasting Glucose' = AVERAGE ( fact_labs[fasting_glucose] )
+		formatString: 0.0
+		lineageTag: 078ace7d-d46f-4bb2-bf16-83d2c3cb0027
+
+	measure 'Avg HbA1c' = AVERAGE ( fact_labs[hba1c] )
+		formatString: 0.00
+		lineageTag: 28cf44a9-8caf-40ea-83b2-8db8bf670483
+
+	measure 'Avg LDL' = AVERAGE ( fact_labs[ldl_cholesterol] )
+		formatString: 0.0
+		lineageTag: 5e90257a-4604-4a41-b65e-0dd596ade32d
+
+	column SEQN
+		dataType: int64
+		lineageTag: c0112d2a-cd78-4be2-ab4a-5c748cfb3d1b
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column total_cholesterol
+		dataType: double
+		lineageTag: 2a07de71-4c58-4523-a132-fc2663496133
+		sourceColumn: total_cholesterol
+		summarizeBy: sum
+
+	column total_cholesterol_zscore
+		dataType: double
+		lineageTag: 38b6e692-7184-415e-9a16-60dea44d341e
+		sourceColumn: total_cholesterol_zscore
+		summarizeBy: sum
+
+	column total_cholesterol_is_outlier
+		dataType: boolean
+		lineageTag: 66ed8538-8bbb-4a5b-8b66-b1e4a4ba383b
+		sourceColumn: total_cholesterol_is_outlier
+		summarizeBy: none
+
+	column hdl_cholesterol
+		dataType: double
+		lineageTag: 386c856b-5e43-42b0-88ff-831d8f847835
+		sourceColumn: hdl_cholesterol
+		summarizeBy: sum
+
+	column hdl_cholesterol_zscore
+		dataType: double
+		lineageTag: 0acf2f22-cef9-4b09-a021-38a4cfe3b5b2
+		sourceColumn: hdl_cholesterol_zscore
+		summarizeBy: sum
+
+	column hdl_cholesterol_is_outlier
+		dataType: boolean
+		lineageTag: d074cb5b-163c-46dd-b2bc-4f44275c8143
+		sourceColumn: hdl_cholesterol_is_outlier
+		summarizeBy: none
+
+	column triglycerides
+		dataType: double
+		lineageTag: a15c6034-a638-45fc-9ab1-4be3185bde51
+		sourceColumn: triglycerides
+		summarizeBy: sum
+
+	column triglycerides_zscore
+		dataType: double
+		lineageTag: ff20e218-e6ee-400c-8b55-fd3b041a4773
+		sourceColumn: triglycerides_zscore
+		summarizeBy: sum
+
+	column triglycerides_is_outlier
+		dataType: boolean
+		lineageTag: e16b4f7d-8840-45be-8507-bb94bea901b3
+		sourceColumn: triglycerides_is_outlier
+		summarizeBy: none
+
+	column ldl_cholesterol
+		dataType: double
+		lineageTag: 130340b2-48e5-4694-9050-3772a961057d
+		sourceColumn: ldl_cholesterol
+		summarizeBy: sum
+
+	column ldl_cholesterol_zscore
+		dataType: double
+		lineageTag: 4d896164-898c-4edb-9ce9-d556967b7858
+		sourceColumn: ldl_cholesterol_zscore
+		summarizeBy: sum
+
+	column ldl_cholesterol_is_outlier
+		dataType: boolean
+		lineageTag: 61a918bc-e0c4-4c83-a62b-0becb026e299
+		sourceColumn: ldl_cholesterol_is_outlier
+		summarizeBy: none
+
+	column fasting_glucose
+		dataType: double
+		lineageTag: 2a847420-4619-4ba2-9df2-2af7cf00410b
+		sourceColumn: fasting_glucose
+		summarizeBy: sum
+
+	column fasting_glucose_zscore
+		dataType: double
+		lineageTag: 7c48f840-93c2-4bd2-b651-ea4081458814
+		sourceColumn: fasting_glucose_zscore
+		summarizeBy: sum
+
+	column fasting_glucose_is_outlier
+		dataType: boolean
+		lineageTag: ba6233f2-c498-42ce-aca7-8b5d8498ed84
+		sourceColumn: fasting_glucose_is_outlier
+		summarizeBy: none
+
+	column hba1c
+		dataType: double
+		lineageTag: 0a191a62-d22d-40d2-b3c4-5eb5964b2955
+		sourceColumn: hba1c
+		summarizeBy: sum
+
+	column hba1c_zscore
+		dataType: double
+		lineageTag: b72ebd3b-2830-4060-a688-c267d53e2a85
+		sourceColumn: hba1c_zscore
+		summarizeBy: sum
+
+	column hba1c_is_outlier
+		dataType: boolean
+		lineageTag: f387ce00-a2b3-40cd-acdf-09e719f056f8
+		sourceColumn: hba1c_is_outlier
+		summarizeBy: none
+
+	column insulin
+		dataType: double
+		lineageTag: 36b59206-0424-4280-8106-cc548e7c2a3b
+		sourceColumn: insulin
+		summarizeBy: sum
+
+	column insulin_zscore
+		dataType: double
+		lineageTag: f3364b3c-a757-4e40-b47c-ed458fadf953
+		sourceColumn: insulin_zscore
+		summarizeBy: sum
+
+	column insulin_is_outlier
+		dataType: boolean
+		lineageTag: 260f4929-365b-4f1e-a913-10ce0a9d598a
+		sourceColumn: insulin_is_outlier
+		summarizeBy: none
+
+	partition fact_labs = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "fact_labs.csv"), [Delimiter=",", Columns=22, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"total_cholesterol", type number}, {"total_cholesterol_zscore", type number}, {"total_cholesterol_is_outlier", type logical}, {"hdl_cholesterol", type number}, {"hdl_cholesterol_zscore", type number}, {"hdl_cholesterol_is_outlier", type logical}, {"triglycerides", type number}, {"triglycerides_zscore", type number}, {"triglycerides_is_outlier", type logical}, {"ldl_cholesterol", type number}, {"ldl_cholesterol_zscore", type number}, {"ldl_cholesterol_is_outlier", type logical}, {"fasting_glucose", type number}, {"fasting_glucose_zscore", type number}, {"fasting_glucose_is_outlier", type logical}, {"hba1c", type number}, {"hba1c_zscore", type number}, {"hba1c_is_outlier", type logical}, {"insulin", type number}, {"insulin_zscore", type number}, {"insulin_is_outlier", type logical}})
+			in
+				Typed

@@ -1,0 +1,72 @@
+table fact_diagnoses
+	lineageTag: a80cbeec-0270-4dd4-b471-a20ebdd8e425
+
+	column SEQN
+		dataType: int64
+		lineageTag: 9b42d29b-7b64-4e2d-82e6-690acc6daf77
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column diabetes_diagnosis
+		dataType: string
+		lineageTag: cc23a84b-a3b5-4042-b537-ddbebb13f500
+		sourceColumn: diabetes_diagnosis
+		summarizeBy: none
+
+	column high_bp_diagnosis
+		dataType: string
+		lineageTag: ac0da24e-11c9-434a-b522-ff8f2d96148d
+		sourceColumn: high_bp_diagnosis
+		summarizeBy: none
+
+	column high_cholesterol_diagnosis
+		dataType: string
+		lineageTag: 3a0c6923-5486-41d3-87d7-5320f01aa423
+		sourceColumn: high_cholesterol_diagnosis
+		summarizeBy: none
+
+	column smoked_100_cigarettes
+		dataType: string
+		lineageTag: 392fde47-360a-4088-abe2-9fc24ae1c304
+		sourceColumn: smoked_100_cigarettes
+		summarizeBy: none
+
+	column current_smoking
+		dataType: string
+		lineageTag: d9142936-97f6-4151-9785-a3fa590acef0
+		sourceColumn: current_smoking
+		summarizeBy: none
+
+	column smoking_status
+		dataType: string
+		lineageTag: cb73a3e2-bb0a-4473-bf64-e4b4cbf166fb
+		sourceColumn: smoking_status
+		summarizeBy: none
+
+	column coronary_heart_disease
+		dataType: string
+		lineageTag: 00621629-8e67-472d-ba4e-2701cabdf9cb
+		sourceColumn: coronary_heart_disease
+		summarizeBy: none
+
+	column heart_attack
+		dataType: string
+		lineageTag: 11bbf6ce-2b26-4253-a1f5-3cf15d396b1f
+		sourceColumn: heart_attack
+		summarizeBy: none
+
+	column stroke
+		dataType: string
+		lineageTag: e35d7427-ed2f-4399-bed7-85096a84a61b
+		sourceColumn: stroke
+		summarizeBy: none
+
+	partition fact_diagnoses = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "fact_diagnoses.csv"), [Delimiter=",", Columns=10, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"diabetes_diagnosis", type text}, {"high_bp_diagnosis", type text}, {"high_cholesterol_diagnosis", type text}, {"smoked_100_cigarettes", type text}, {"current_smoking", type text}, {"smoking_status", type text}, {"coronary_heart_disease", type text}, {"heart_attack", type text}, {"stroke", type text}})
+			in
+				Typed

@@ -1,0 +1,93 @@
+table dim_respondents
+	lineageTag: 815b4827-8e00-465e-93aa-060f25c23a31
+
+	measure Respondents = COUNTROWS ( dim_respondents )
+		lineageTag: f88eaaa4-1ed2-491f-93f2-55c94d66c043
+
+	column SEQN
+		dataType: int64
+		lineageTag: de402473-a876-468d-8ca7-1d71176d00a5
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column age_years
+		dataType: double
+		lineageTag: 211d08d2-9416-4349-8948-985cb87eaedf
+		sourceColumn: age_years
+		summarizeBy: sum
+
+	column age_band
+		dataType: string
+		lineageTag: 466cb7c3-f854-4d12-b86d-89d63964550b
+		sourceColumn: age_band
+		summarizeBy: none
+
+	column gender
+		dataType: string
+		lineageTag: df87f62f-d994-4cd8-bae6-3a39f5a1474e
+		sourceColumn: gender
+		summarizeBy: none
+
+	column race_ethnicity
+		dataType: string
+		lineageTag: 5c962470-b6f3-4b89-9ab9-5df60c0a7f60
+		sourceColumn: race_ethnicity
+		summarizeBy: none
+
+	column education
+		dataType: string
+		lineageTag: e0466821-3f30-4409-845d-c4b892f0e047
+		sourceColumn: education
+		summarizeBy: none
+
+	column income_poverty_ratio
+		dataType: double
+		lineageTag: 3c4afca2-b8e5-47c8-a2b1-797da0a552c9
+		sourceColumn: income_poverty_ratio
+		summarizeBy: sum
+
+	column is_adult
+		dataType: boolean
+		lineageTag: 57fee308-4737-45d2-9080-51bfc1bbf6c3
+		sourceColumn: is_adult
+		summarizeBy: none
+
+	column has_body_measures
+		dataType: boolean
+		lineageTag: 37d1b19a-75b1-4e20-9ca0-4443de018bfe
+		sourceColumn: has_body_measures
+		summarizeBy: none
+
+	column has_blood_pressure
+		dataType: boolean
+		lineageTag: 89c43a2e-0a65-45c0-ba50-6561a132b259
+		sourceColumn: has_blood_pressure
+		summarizeBy: none
+
+	column has_labs
+		dataType: boolean
+		lineageTag: e24565f4-5870-4927-97e4-69dc79e6dfa8
+		sourceColumn: has_labs
+		summarizeBy: none
+
+	column has_fasting_labs
+		dataType: boolean
+		lineageTag: dd1b507b-4264-47ec-be40-8f4336a9ca8f
+		sourceColumn: has_fasting_labs
+		summarizeBy: none
+
+	column has_diagnosis_data
+		dataType: boolean
+		lineageTag: 3920824b-a3a4-46c3-a263-68c9de464e31
+		sourceColumn: has_diagnosis_data
+		summarizeBy: none
+
+	partition dim_respondents = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "dim_respondents.csv"), [Delimiter=",", Columns=13, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"age_years", type number}, {"age_band", type text}, {"gender", type text}, {"race_ethnicity", type text}, {"education", type text}, {"income_poverty_ratio", type number}, {"is_adult", type logical}, {"has_body_measures", type logical}, {"has_blood_pressure", type logical}, {"has_labs", type logical}, {"has_fasting_labs", type logical}, {"has_diagnosis_data", type logical}})
+			in
+				Typed

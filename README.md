@@ -87,12 +87,14 @@ All visuals use measures baked into the model. The undiagnosed care-gap rates ar
 
 ### Adding your own pages, and refreshing data
 
-Once you customize the report in Power BI Desktop, keep two things straight:
+The Power BI project (`powerbi/NHANES.pbip` + `.SemanticModel` + `.Report`) **is committed to the repo**, so pages and visuals you build in Power BI Desktop are versioned like any other file — edit in Desktop, save, `git add`/`commit`. Power BI's per-user/cache files (`.pbi/`, `*.abf`, `diagramLayout.json`, …) are git-ignored so they don't cause churn.
 
-- **Refreshing data is safe.** Re-run `python scripts/build_dataset.py` and click **Refresh** in Power BI — this only rewrites the `exports/` CSVs and never touches your report. Any pages/visuals you added by hand are preserved.
-- **Re-running the project generator overwrites the report.** `build_powerbi_project.py` regenerates the whole report definition, so it would discard hand-built pages. To prevent accidents it now **refuses to overwrite an existing project unless you pass `--force`**. Only use `--force` when you deliberately want to rebuild from scratch.
+Two workflow rules keep it sane:
 
-The generated `.pbip` is git-ignored (it bakes in a machine-specific path), so your local customizations aren't tracked by default. If you want to version your hand-built report, either commit the `NHANES.Report/` folder explicitly (`git add -f`) or keep your custom pages as a separate `.pbix`.
+- **Refreshing data is safe.** Re-run `python scripts/build_dataset.py` and click **Refresh** in Power BI — this only rewrites the `exports/` CSVs and never touches your report. Hand-built pages are preserved.
+- **The generator seeds the project once; after that you own it.** `build_powerbi_project.py` regenerates the whole report/model, so it would discard hand-built pages — it therefore **refuses to overwrite an existing project unless you pass `--force`**. Only use `--force` for a deliberate from-scratch rebuild.
+
+Portability note: the semantic model bakes in an absolute `exports/` path (in the `ExportsFolder` Power Query parameter). On a different machine, edit that parameter in **Transform data**, or re-run the generator with `--force`.
 
 ```bash
 python scripts/build_dataset.py          # 1. build exports/*.csv

@@ -1,0 +1,54 @@
+table fact_anomalies
+	lineageTag: a901a5fb-d59f-4508-bc29-b89f3febf6cd
+
+	measure 'Flagged Anomalies' = COUNTROWS ( fact_anomalies )
+		lineageTag: a33792fe-2862-4c79-8521-0fe6e7d4ed6a
+
+	measure 'Respondents With Any Anomaly' = DISTINCTCOUNT ( fact_anomalies[SEQN] )
+		lineageTag: 1a77d35f-3823-4c53-abd4-4aa70dc5cbe9
+
+	column SEQN
+		dataType: int64
+		lineageTag: 12f9fde9-bbbb-4053-b1f1-783bb16d9753
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column field
+		dataType: string
+		lineageTag: f5bdfa34-e4af-4939-858e-10f0862a0ba0
+		sourceColumn: field
+		summarizeBy: none
+
+	column field_label
+		dataType: string
+		lineageTag: 1581c53d-46ce-4a3c-bc49-0877be0540d7
+		sourceColumn: field_label
+		summarizeBy: none
+
+	column field_category
+		dataType: string
+		lineageTag: c5ae5d54-d7a8-4075-bebe-8a974e91b14b
+		sourceColumn: field_category
+		summarizeBy: none
+
+	column value
+		dataType: double
+		lineageTag: 3f3b7476-2a5f-45d3-9e12-93388cfd38f5
+		sourceColumn: value
+		summarizeBy: sum
+
+	column zscore
+		dataType: double
+		lineageTag: 42a4e75d-717f-43e4-bb5b-85da43801751
+		sourceColumn: zscore
+		summarizeBy: sum
+
+	partition fact_anomalies = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "fact_anomalies.csv"), [Delimiter=",", Columns=6, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"field", type text}, {"field_label", type text}, {"field_category", type text}, {"value", type number}, {"zscore", type number}})
+			in
+				Typed

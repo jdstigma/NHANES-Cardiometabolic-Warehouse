@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "card_flagged",
+  "position": {
+    "x": 20,
+    "y": 20,
+    "z": 1000,
+    "width": 400,
+    "height": 120,
+    "tabOrder": 1000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_anomalies"
+                    }
+                  },
+                  "Property": "Flagged Anomalies"
+                }
+              },
+              "queryRef": "fact_anomalies.Flagged Anomalies",
+              "nativeQueryRef": "Flagged Anomalies"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

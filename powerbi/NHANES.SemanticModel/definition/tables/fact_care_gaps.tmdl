@@ -1,0 +1,66 @@
+table fact_care_gaps
+	lineageTag: af7a893f-2d4c-46b2-95f1-c6d7c6e76071
+
+	measure 'Undiagnosed Diabetes Rate' = DIVIDE ( SUM ( fact_care_gaps[undiagnosed_diabetes] ), SUM ( fact_care_gaps[diabetic_range] ) )
+		formatString: 0.0%
+		lineageTag: bbf142cb-9b7b-44db-97ee-fc09b56167ae
+
+	measure 'Undiagnosed Hypertension Rate' = DIVIDE ( SUM ( fact_care_gaps[undiagnosed_hypertension] ), SUM ( fact_care_gaps[hypertensive] ) )
+		formatString: 0.0%
+		lineageTag: 4120ffee-a88d-4ec7-a859-b5e169e33cbb
+
+	measure 'Undiagnosed High Cholesterol Rate' = DIVIDE ( SUM ( fact_care_gaps[undiagnosed_high_cholesterol] ), SUM ( fact_care_gaps[high_ldl] ) )
+		formatString: 0.0%
+		lineageTag: 2619747b-d3ff-4c5c-a828-c31d23b2b069
+
+	column SEQN
+		dataType: int64
+		lineageTag: f8e590b0-5b9a-4661-8726-136167e80e4c
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column diabetic_range
+		dataType: int64
+		lineageTag: 82098c59-e8b7-4cfc-a0ef-21ae7e74db43
+		sourceColumn: diabetic_range
+		summarizeBy: sum
+
+	column undiagnosed_diabetes
+		dataType: int64
+		lineageTag: a060dd70-1860-48eb-9358-45ade85f64e9
+		sourceColumn: undiagnosed_diabetes
+		summarizeBy: sum
+
+	column hypertensive
+		dataType: int64
+		lineageTag: 08b3a23c-3b6f-4252-a9d5-d5fb56daf781
+		sourceColumn: hypertensive
+		summarizeBy: sum
+
+	column undiagnosed_hypertension
+		dataType: int64
+		lineageTag: 1bbd6584-f083-4b62-b681-6223660e134b
+		sourceColumn: undiagnosed_hypertension
+		summarizeBy: sum
+
+	column high_ldl
+		dataType: int64
+		lineageTag: 6ff6290a-cd9e-4bf8-8c77-2a33853421b0
+		sourceColumn: high_ldl
+		summarizeBy: sum
+
+	column undiagnosed_high_cholesterol
+		dataType: int64
+		lineageTag: 570ac601-a9ea-4752-92b1-54f3f112c8bc
+		sourceColumn: undiagnosed_high_cholesterol
+		summarizeBy: sum
+
+	partition fact_care_gaps = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "fact_care_gaps.csv"), [Delimiter=",", Columns=7, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"diabetic_range", Int64.Type}, {"undiagnosed_diabetes", Int64.Type}, {"hypertensive", Int64.Type}, {"undiagnosed_hypertension", Int64.Type}, {"high_ldl", Int64.Type}, {"undiagnosed_high_cholesterol", Int64.Type}})
+			in
+				Typed

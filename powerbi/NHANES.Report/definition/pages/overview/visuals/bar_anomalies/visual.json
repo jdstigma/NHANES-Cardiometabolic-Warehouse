@@ -1,0 +1,73 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "bar_anomalies",
+  "position": {
+    "x": 650,
+    "y": 160,
+    "z": 5000,
+    "width": 610,
+    "height": 540,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_anomalies"
+                    }
+                  },
+                  "Property": "field_category"
+                }
+              },
+              "queryRef": "fact_anomalies.field_category",
+              "nativeQueryRef": "field_category"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_anomalies"
+                    }
+                  },
+                  "Property": "Flagged Anomalies"
+                }
+              },
+              "queryRef": "fact_anomalies.Flagged Anomalies",
+              "nativeQueryRef": "Flagged Anomalies"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "fact_anomalies"
+                  }
+                },
+                "Property": "Flagged Anomalies"
+              }
+            },
+            "direction": "Descending"
+          }
+        ]
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

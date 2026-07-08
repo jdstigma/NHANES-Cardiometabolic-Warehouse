@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "card_avg_hba1c",
+  "position": {
+    "x": 860,
+    "y": 20,
+    "z": 3000,
+    "width": 400,
+    "height": 120,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_labs"
+                    }
+                  },
+                  "Property": "Avg HbA1c"
+                }
+              },
+              "queryRef": "fact_labs.Avg HbA1c",
+              "nativeQueryRef": "Avg HbA1c"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

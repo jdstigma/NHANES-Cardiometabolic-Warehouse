@@ -1,0 +1,52 @@
+table metrics_summary
+	lineageTag: a553bc5b-28bd-4056-84ae-11a04785862e
+
+	measure 'Metric Value' = SUM ( metrics_summary[value_pct] )
+		formatString: 0.0
+		lineageTag: 5acfc12f-0389-4e90-9392-487c70378d0b
+
+	column metric
+		dataType: string
+		lineageTag: ad5a3864-491a-4b60-8c52-526117cf4c4e
+		sourceColumn: metric
+		summarizeBy: none
+
+	column category
+		dataType: string
+		lineageTag: a368c5aa-b3aa-4b50-b906-01481220cf58
+		sourceColumn: category
+		summarizeBy: none
+
+	column value_pct
+		dataType: double
+		lineageTag: b8f765bb-fe38-44cb-8c50-581f6c07abfc
+		sourceColumn: value_pct
+		summarizeBy: sum
+
+	column numerator
+		dataType: int64
+		lineageTag: f5616eb2-a66f-4671-972b-5abf29963ef1
+		sourceColumn: numerator
+		summarizeBy: sum
+
+	column denominator
+		dataType: int64
+		lineageTag: 2d48b276-b9b6-4b7d-afc3-26c23a04f162
+		sourceColumn: denominator
+		summarizeBy: sum
+
+	column description
+		dataType: string
+		lineageTag: 1e493a40-9c67-4377-96cf-1895b5aa396b
+		sourceColumn: description
+		summarizeBy: none
+
+	partition metrics_summary = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "metrics_summary.csv"), [Delimiter=",", Columns=6, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"metric", type text}, {"category", type text}, {"value_pct", type number}, {"numerator", Int64.Type}, {"denominator", Int64.Type}, {"description", type text}})
+			in
+				Typed

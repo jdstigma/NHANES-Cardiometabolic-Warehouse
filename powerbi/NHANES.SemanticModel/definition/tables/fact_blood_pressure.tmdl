@@ -1,0 +1,62 @@
+table fact_blood_pressure
+	lineageTag: b81155f8-99f0-41ae-8851-e2a466c9e982
+
+	measure 'Avg Systolic' = AVERAGE ( fact_blood_pressure[mean_systolic] )
+		formatString: 0.0
+		lineageTag: 4757d36a-939d-4958-810b-7ba30b761468
+
+	measure 'Avg Diastolic' = AVERAGE ( fact_blood_pressure[mean_diastolic] )
+		formatString: 0.0
+		lineageTag: e4c5c255-c6cc-43dc-8108-a800fef779da
+
+	column SEQN
+		dataType: int64
+		lineageTag: 976cddbf-67d5-4f15-8b6d-accbbea79326
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column mean_systolic
+		dataType: double
+		lineageTag: bbf6d561-d252-4065-a62c-eb07d76464d6
+		sourceColumn: mean_systolic
+		summarizeBy: sum
+
+	column mean_systolic_zscore
+		dataType: double
+		lineageTag: 520c256b-45b9-4daf-9741-bac04e5aff9a
+		sourceColumn: mean_systolic_zscore
+		summarizeBy: sum
+
+	column mean_systolic_is_outlier
+		dataType: boolean
+		lineageTag: 43ab5977-bb60-4893-a757-ffea44614c5f
+		sourceColumn: mean_systolic_is_outlier
+		summarizeBy: none
+
+	column mean_diastolic
+		dataType: double
+		lineageTag: 59475571-88d8-46f4-b0b1-b6f6f6c8d7a5
+		sourceColumn: mean_diastolic
+		summarizeBy: sum
+
+	column mean_diastolic_zscore
+		dataType: double
+		lineageTag: 2904baaf-d67e-4a5b-8a93-584ddc5edeed
+		sourceColumn: mean_diastolic_zscore
+		summarizeBy: sum
+
+	column mean_diastolic_is_outlier
+		dataType: boolean
+		lineageTag: 8b417c15-7877-4659-b6d9-2b5d75d38a97
+		sourceColumn: mean_diastolic_is_outlier
+		summarizeBy: none
+
+	partition fact_blood_pressure = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "fact_blood_pressure.csv"), [Delimiter=",", Columns=7, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"mean_systolic", type number}, {"mean_systolic_zscore", type number}, {"mean_systolic_is_outlier", type logical}, {"mean_diastolic", type number}, {"mean_diastolic_zscore", type number}, {"mean_diastolic_is_outlier", type logical}})
+			in
+				Typed

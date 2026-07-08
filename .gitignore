@@ -9,12 +9,16 @@ __pycache__/
 notebooks/executed_exploration.ipynb
 notebooks/executed_exploration.html
 
-# Generated Power BI project (build artifact — bakes in an absolute path;
-# regenerate with `python scripts/build_powerbi_project.py`). measures.md,
-# which is hand-written, stays tracked.
-powerbi/NHANES.pbip
-powerbi/NHANES.SemanticModel/
-powerbi/NHANES.Report/
-# Power BI Desktop local/cache files, created when the project is opened
+# The Power BI project (NHANES.pbip + .SemanticModel + .Report) IS versioned so
+# hand-built report pages are tracked. The generator seeds it; after that you
+# own it (the generator refuses to overwrite without --force). Note: the
+# semantic model bakes in an absolute exports/ path — on a new machine, edit the
+# ExportsFolder parameter in Power Query (or re-run the generator with --force).
+#
+# Only Power BI Desktop's per-user/local/cache files are ignored — these are
+# machine-specific or contain a data cache and cause churn:
 **/.pbi/
 **/*.abf
+**/diagramLayout.json
+**/semanticModelDiagramLayout.json
+**/unappliedChanges.json

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "bar_anom_by_age",
+  "position": {
+    "x": 650,
+    "y": 160,
+    "z": 4000,
+    "width": 610,
+    "height": 260,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_respondents"
+                    }
+                  },
+                  "Property": "age_band"
+                }
+              },
+              "queryRef": "dim_respondents.age_band",
+              "nativeQueryRef": "age_band"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_anomalies"
+                    }
+                  },
+                  "Property": "Flagged Anomalies"
+                }
+              },
+              "queryRef": "fact_anomalies.Flagged Anomalies",
+              "nativeQueryRef": "Flagged Anomalies"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

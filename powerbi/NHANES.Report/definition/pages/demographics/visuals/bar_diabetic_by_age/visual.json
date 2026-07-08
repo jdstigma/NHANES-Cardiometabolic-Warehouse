@@ -1,0 +1,56 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "bar_diabetic_by_age",
+  "position": {
+    "x": 20,
+    "y": 440,
+    "z": 5000,
+    "width": 610,
+    "height": 260,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "clusteredBarChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_respondents"
+                    }
+                  },
+                  "Property": "age_band"
+                }
+              },
+              "queryRef": "dim_respondents.age_band",
+              "nativeQueryRef": "age_band"
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_labs"
+                    }
+                  },
+                  "Property": "Diabetic-Range Rate"
+                }
+              },
+              "queryRef": "fact_labs.Diabetic-Range Rate",
+              "nativeQueryRef": "Diabetic-Range Rate"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

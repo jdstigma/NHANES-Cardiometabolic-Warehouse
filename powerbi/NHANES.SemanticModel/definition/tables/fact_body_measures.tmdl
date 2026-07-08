@@ -1,0 +1,85 @@
+table fact_body_measures
+	lineageTag: c79a0317-6ce5-4455-8bde-d5ca65a30159
+
+	measure 'BMI Measured' = COUNTROWS ( FILTER ( fact_body_measures, NOT ( ISBLANK ( fact_body_measures[bmi] ) ) ) )
+		lineageTag: e7a328e6-7307-42c5-8734-e4570f9bbab6
+
+	measure 'Obesity Rate' = DIVIDE ( COUNTROWS ( FILTER ( fact_body_measures, fact_body_measures[bmi] >= 30 ) ), [BMI Measured] )
+		formatString: 0.0%
+		lineageTag: 318f3264-527e-430e-a96f-85ead11a0ea4
+
+	measure 'Overweight Plus Rate' = DIVIDE ( COUNTROWS ( FILTER ( fact_body_measures, fact_body_measures[bmi] >= 25 ) ), [BMI Measured] )
+		formatString: 0.0%
+		lineageTag: d1188e83-82c9-498d-aa33-ac819140bb4b
+
+	measure 'Avg BMI' = AVERAGE ( fact_body_measures[bmi] )
+		formatString: 0.0
+		lineageTag: c262c79c-9df2-40e5-870d-f67768162cff
+
+	measure 'Avg Waist (cm)' = AVERAGE ( fact_body_measures[waist_cm] )
+		formatString: 0.0
+		lineageTag: b80fd5f7-9265-44ac-94ea-f8671486f9b7
+
+	column SEQN
+		dataType: int64
+		lineageTag: a193f9ef-5701-4689-88c1-93df5a286680
+		sourceColumn: SEQN
+		summarizeBy: none
+
+	column weight_kg
+		dataType: double
+		lineageTag: 3fbe28fc-accc-4ebf-bef7-7b70d9725cf3
+		sourceColumn: weight_kg
+		summarizeBy: sum
+
+	column height_cm
+		dataType: double
+		lineageTag: 33161fe7-4d85-484f-850b-0206ccf3b33b
+		sourceColumn: height_cm
+		summarizeBy: sum
+
+	column bmi
+		dataType: double
+		lineageTag: c7d9cf70-d0ea-4fe5-a8da-6c3c40765b3a
+		sourceColumn: bmi
+		summarizeBy: sum
+
+	column bmi_zscore
+		dataType: double
+		lineageTag: 10fd889a-469b-46c6-b360-e9fa6b9ae3d7
+		sourceColumn: bmi_zscore
+		summarizeBy: sum
+
+	column bmi_is_outlier
+		dataType: boolean
+		lineageTag: 7bc9fb67-8ff7-4295-96bd-55a3d3842028
+		sourceColumn: bmi_is_outlier
+		summarizeBy: none
+
+	column waist_cm
+		dataType: double
+		lineageTag: c5a6aedc-92c0-4ded-89ab-fb3276095eee
+		sourceColumn: waist_cm
+		summarizeBy: sum
+
+	column waist_cm_zscore
+		dataType: double
+		lineageTag: 4bb55850-538d-4631-ba45-03f19694e072
+		sourceColumn: waist_cm_zscore
+		summarizeBy: sum
+
+	column waist_cm_is_outlier
+		dataType: boolean
+		lineageTag: 39b75f97-c8f8-4d64-9429-2f8b8a6f39d4
+		sourceColumn: waist_cm_is_outlier
+		summarizeBy: none
+
+	partition fact_body_measures = m
+		mode: import
+		source =
+			let
+				Source = Csv.Document(File.Contents(ExportsFolder & "fact_body_measures.csv"), [Delimiter=",", Columns=9, Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+				Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				Typed = Table.TransformColumnTypes(Promoted, {{"SEQN", Int64.Type}, {"weight_kg", type number}, {"height_cm", type number}, {"bmi", type number}, {"bmi_zscore", type number}, {"bmi_is_outlier", type logical}, {"waist_cm", type number}, {"waist_cm_zscore", type number}, {"waist_cm_is_outlier", type logical}})
+			in
+				Typed

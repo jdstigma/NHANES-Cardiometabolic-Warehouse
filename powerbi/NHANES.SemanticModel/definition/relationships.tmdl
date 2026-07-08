@@ -1,0 +1,23 @@
+relationship 2fd63250-1b26-44a1-8d81-5f50a00b66c1
+	fromColumn: fact_body_measures.SEQN
+	toColumn: dim_respondents.SEQN
+
+relationship 14e3166a-1ca3-4624-b5ca-beab7b81fd83
+	fromColumn: fact_blood_pressure.SEQN
+	toColumn: dim_respondents.SEQN
+
+relationship 463326a1-7500-427b-8758-bec335fbc0ef
+	fromColumn: fact_labs.SEQN
+	toColumn: dim_respondents.SEQN
+
+relationship c3c3c609-32af-44bc-b3c1-ed9befaa4f22
+	fromColumn: fact_diagnoses.SEQN
+	toColumn: dim_respondents.SEQN
+
+relationship 82dac0bf-298f-4ab7-9899-d3b8a22e341a
+	fromColumn: fact_anomalies.SEQN
+	toColumn: dim_respondents.SEQN
+
+relationship c6e75a90-3ceb-4f76-9863-d7318bb6caf9
+	fromColumn: fact_care_gaps.SEQN
+	toColumn: dim_respondents.SEQN
