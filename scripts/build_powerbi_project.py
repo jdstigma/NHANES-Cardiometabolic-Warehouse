@@ -85,6 +85,12 @@ MEASURES = {
         ("Flagged Anomalies", "COUNTROWS ( fact_anomalies )", None),
         ("Respondents With Any Anomaly", "DISTINCTCOUNT ( fact_anomalies[SEQN] )", None),
     ],
+    "metrics_summary": [
+        # one row per metric, so SUM = the metric's value; lets a chart put
+        # value_pct on an axis via a measure (a raw column in a value well
+        # renders blank without an aggregation wrapper).
+        ("Metric Value", "SUM ( metrics_summary[value_pct] )", "0.0"),
+    ],
 }
 
 
@@ -195,9 +201,8 @@ def _visual(name, vtype, x, y, w, h, z, query_state, sort_field=None):
     }
 
 
-def build_visuals() -> list:
-    """A starter dashboard on the Overview page: 3 KPI cards + 2 bar charts.
-    Uses measures baked into the model and columns from the marts."""
+def build_overview_visuals() -> list:
+    """Page 1 — Overview: 3 KPI cards + 2 bar charts."""
     return [
         # --- KPI cards (role "Data" takes measures) ---
         _visual("card_respondents", "cardVisual", 20, 20, 400, 120, 1000,
@@ -206,18 +211,58 @@ def build_visuals() -> list:
                 {"Data": {"projections": [_field("Measure", "fact_body_measures", "Obesity Rate")]}}),
         _visual("card_diabetic", "cardVisual", 860, 20, 400, 120, 3000,
                 {"Data": {"projections": [_field("Measure", "fact_labs", "Diabetic-Range Rate")]}}),
-        # --- KPI overview bar: every headline metric (value_pct is a column,
-        #     one row per metric, so the default Sum aggregation = the value) ---
+        # --- KPI overview bar: every headline metric, via the Metric Value
+        #     measure (a raw column in a value well renders blank) ---
         _visual("bar_kpis", "clusteredBarChart", 20, 160, 610, 540, 4000,
                 {"Category": {"projections": [_field("Column", "metrics_summary", "metric")]},
-                 "Y": {"projections": [_field("Column", "metrics_summary", "value_pct")]}},
-                sort_field=("Column", "metrics_summary", "value_pct")),
+                 "Y": {"projections": [_field("Measure", "metrics_summary", "Metric Value")]}},
+                sort_field=("Measure", "metrics_summary", "Metric Value")),
         # --- anomalies by category (Flagged Anomalies is a measure) ---
         _visual("bar_anomalies", "clusteredBarChart", 650, 160, 610, 540, 5000,
                 {"Category": {"projections": [_field("Column", "fact_anomalies", "field_category")]},
                  "Y": {"projections": [_field("Measure", "fact_anomalies", "Flagged Anomalies")]}},
                 sort_field=("Measure", "fact_anomalies", "Flagged Anomalies")),
     ]
+
+
+def build_demographics_visuals() -> list:
+    """Page 2 — Prevalence by Demographics: baked-in rate measures sliced by
+    dim_respondents columns (proven measure-in-Y pattern, all measures exist).
+    NOTE: the undiagnosed care-gap measures are intentionally NOT baked into the
+    model (a bad cross-table DAX measure blocks the whole model from loading);
+    they live in powerbi/measures.md for manual paste. This page uses only the
+    safe rate measures so it renders out of the box."""
+    return [
+        _visual("card_overweight", "cardVisual", 20, 20, 400, 120, 1000,
+                {"Data": {"projections": [_field("Measure", "fact_body_measures", "Overweight Plus Rate")]}}),
+        _visual("card_prediabetes", "cardVisual", 440, 20, 400, 120, 2000,
+                {"Data": {"projections": [_field("Measure", "fact_labs", "Prediabetes Rate")]}}),
+        _visual("card_anom_respondents", "cardVisual", 860, 20, 400, 120, 3000,
+                {"Data": {"projections": [_field("Measure", "fact_anomalies", "Respondents With Any Anomaly")]}}),
+        # obesity rate by age band
+        _visual("bar_obesity_by_age", "clusteredBarChart", 20, 160, 610, 260, 4000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_body_measures", "Obesity Rate")]}}),
+        # diabetic-range rate by age band
+        _visual("bar_diabetic_by_age", "clusteredBarChart", 20, 440, 610, 260, 5000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_labs", "Diabetic-Range Rate")]}}),
+        # prediabetes rate by gender
+        _visual("bar_prediabetes_by_gender", "clusteredBarChart", 650, 160, 610, 260, 6000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "gender")]},
+                 "Y": {"projections": [_field("Measure", "fact_labs", "Prediabetes Rate")]}}),
+        # obesity rate by gender
+        _visual("bar_obesity_by_gender", "clusteredBarChart", 650, 440, 610, 260, 7000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "gender")]},
+                 "Y": {"projections": [_field("Measure", "fact_body_measures", "Obesity Rate")]}}),
+    ]
+
+
+# (page_id, display name, visuals) — page_id is the folder name; first is active
+PAGES = [
+    ("overview", "Overview", build_overview_visuals),
+    ("demographics", "Prevalence by Demographics", build_demographics_visuals),
+]
 
 
 def main():
@@ -274,7 +319,7 @@ def main():
         "config": {"version": "2.0", "logicalId": guid()},
     }, indent=2))
 
-    # ---- report (new PBIR format, one empty page) ----
+    # ---- report (new PBIR format, multi-page with starter visuals) ----
     # Structure + exact property shapes mirror Microsoft's official pbip-demo
     # (github.com/RuiRomano/pbip-demo). Earlier failures walked up a chain of
     # missing pieces: (1) report.json with only $schema failed at
@@ -283,7 +328,6 @@ def main():
     # themeCollection.baseTheme AND .customTheme, so the demo always ships a
     # base theme (SharedResources) AND a custom theme (RegisteredResources).
     # This version ships both theme files.
-    page = "overview"
     report_version = "5.61"
 
     write(REPORT_DIR / "definition.pbir", json.dumps({
@@ -316,21 +360,22 @@ def main():
 
     write(REPORT_DIR / "definition" / "pages" / "pages.json", json.dumps({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
-        "pageOrder": [page], "activePageName": page,
+        "pageOrder": [pid for pid, _, _ in PAGES], "activePageName": PAGES[0][0],
     }, indent=2))
 
-    write(REPORT_DIR / "definition" / "pages" / page / "page.json", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/1.4.0/schema.json",
-        "name": page, "displayName": "Overview",
-        "displayOption": "FitToPage", "height": 720, "width": 1280,
-    }, indent=2))
-
-    # starter visuals — one folder + visual.json per visual (Desktop discovers
-    # them from the folder structure; no need to list them in page.json)
-    visuals = build_visuals()
-    for vname, vdoc in visuals:
-        write(REPORT_DIR / "definition" / "pages" / page / "visuals" / vname / "visual.json",
-              json.dumps(vdoc, indent=2))
+    total_visuals = 0
+    for pid, pdisplay, vbuilder in PAGES:
+        write(REPORT_DIR / "definition" / "pages" / pid / "page.json", json.dumps({
+            "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/1.4.0/schema.json",
+            "name": pid, "displayName": pdisplay,
+            "displayOption": "FitToPage", "height": 720, "width": 1280,
+        }, indent=2))
+        # visuals — one folder + visual.json each; Desktop discovers them from
+        # the folder structure, no need to list them in page.json
+        for vname, vdoc in vbuilder():
+            write(REPORT_DIR / "definition" / "pages" / pid / "visuals" / vname / "visual.json",
+                  json.dumps(vdoc, indent=2))
+            total_visuals += 1
 
     # ship both theme files the report references (else Desktop errors on them):
     # base theme -> StaticResources/SharedResources/BaseThemes/, custom theme ->
@@ -360,7 +405,7 @@ def main():
     print(f"Generated {PROJECT_DIR / (NAME + '.pbip')}")
     print(f"  semantic model: {len(TABLES)} tables, reading CSVs from {exports_path}")
     print("  measures:", sum(len(m) for m in MEASURES.values()))
-    print(f"  report: 1 page, {len(visuals)} starter visuals")
+    print(f"  report: {len(PAGES)} pages, {total_visuals} visuals")
     print("\nOpen NHANES.pbip in Power BI Desktop (with TMDL + PBIR preview features enabled).")
 
 

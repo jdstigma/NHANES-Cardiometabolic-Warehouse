@@ -74,7 +74,12 @@ Two legacy files are also written for backward compatibility with an existing `.
 
 ### Fast path — generate a ready-made Power BI project (2 steps)
 
-`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all seven star-schema tables, the `SEQN` relationships, the headline DAX measures, and an **Overview report page with 5 starter visuals** (KPI cards for Respondents / Obesity Rate / Diabetic-Range Rate, a bar chart of every headline metric, and a bar chart of flagged anomalies by category) — so you don't have to import each CSV or build the model and report by hand:
+`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all seven star-schema tables, the `SEQN` relationships, the headline DAX measures, and a **two-page report with 12 starter visuals** — so you don't have to import each CSV or build the model and report by hand:
+
+- **Overview**: KPI cards (Respondents, Obesity Rate, Diabetic-Range Rate), a bar of every headline metric, and flagged anomalies by category.
+- **Prevalence by Demographics**: cards (Overweight+, Prediabetes, respondents-with-anomaly) plus obesity/diabetic/prediabetes rates broken out by age band and gender.
+
+The visuals only use measures baked into the model. The *undiagnosed care-gap* measures are intentionally left out of the model (a bad cross-table DAX measure blocks the whole model from loading) — paste them from [`powerbi/measures.md`](powerbi/measures.md) via the GUI, then you can add matching care-gap visuals.
 
 ```bash
 python scripts/build_dataset.py          # 1. build exports/*.csv
