@@ -25,6 +25,8 @@ Demographics, body measurements, blood pressure, lipid panel, glucose/insulin, a
 
 **This is unweighted.** NHANES sample weights (`WTINT2YR`, `WTMEC2YR`, `WTSAF2YR`) exist to make estimates population-representative, but they're not applied here. Nothing in these exports should be read as a national prevalence estimate — this is respondent-level outlier detection *within the sample*, not epidemiology.
 
+**Expect blanks — they're structural, not errors.** NHANES doesn't measure everything on everyone, so most respondents are blank in *some* domain: the fasting labs (`fasting_glucose`, `insulin`, `triglycerides`, `LDL`) come only from the ~30% morning fasting subsample; exam measures (BMI ~71%, blood pressure ~63%) exist only for mobile-exam attendees; and the adult questionnaires (diagnoses, smoking) are blank for the ~32% who are children. A blank means "not measured for this person." The `dim_respondents` coverage flags (`has_labs`, `has_fasting_labs`, `has_blood_pressure`, `is_adult`, …) let you filter to the measured population in one click, and every DAX measure below already counts only respondents who have the relevant field, so the percentages stay correct regardless of blanks.
+
 ## Running it
 
 ```bash
@@ -38,7 +40,7 @@ Outputs land in `exports/` as a star schema:
 
 | Mart | Grain | Contents |
 |---|---|---|
-| **`dim_respondents.csv`** | 1 row/respondent | Demographics: age, age_band, gender, race/ethnicity, education, income-to-poverty ratio |
+| **`dim_respondents.csv`** | 1 row/respondent | Demographics (age, age_band, gender, race/ethnicity, education, income-to-poverty ratio) + coverage flags: `is_adult`, `has_body_measures`, `has_blood_pressure`, `has_labs`, `has_fasting_labs`, `has_diagnosis_data` |
 | **`fact_body_measures.csv`** | 1 row/respondent | Weight, height, BMI, waist circumference + z-score/outlier flag per field |
 | **`fact_blood_pressure.csv`** | 1 row/respondent | Mean systolic/diastolic (averaged across up to 3 readings) + z-score/outlier flag |
 | **`fact_labs.csv`** | 1 row/respondent | Total/HDL/LDL cholesterol, triglycerides, fasting glucose, HbA1c, insulin + z-score/outlier flag per field |

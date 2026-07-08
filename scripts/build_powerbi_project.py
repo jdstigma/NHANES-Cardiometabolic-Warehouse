@@ -170,6 +170,17 @@ def main():
     if not EXPORTS.exists() or not (EXPORTS / "dim_respondents.csv").exists():
         raise SystemExit("exports/ is missing — run `python scripts/build_dataset.py` first.")
 
+    # Surgically remove the orphaned report /definition folder left by the old
+    # (new-PBIR) report format — the current legacy report.json would otherwise
+    # sit alongside it and confuse Desktop. Overwriting everything else in place
+    # is fine. ignore_errors so a lock (e.g. project open in Power BI) doesn't
+    # crash the run — but note: if the project IS open, the .tmdl writes below
+    # will fail too, so close it in Power BI Desktop before regenerating.
+    import shutil
+    stale_report_def = REPORT_DIR / "definition"
+    if stale_report_def.exists():
+        shutil.rmtree(stale_report_def, ignore_errors=True)
+
     exports_path = str(EXPORTS.resolve()).replace("\\", "/") + "/"
 
     # ---- semantic model ----
@@ -207,27 +218,35 @@ def main():
     }, indent=2))
 
     # ---- report (minimal PBIR, one empty page) ----
-    page_name = "overview"
-    write(REPORT_DIR / "definition" / "report.json", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.0.0/schema.json",
-    }, indent=2))
-    write(REPORT_DIR / "definition" / "version.json", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
-        "version": "4.0",
-    }, indent=2))
-    write(REPORT_DIR / "definition" / "pages" / "pages.json", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
-        "pageOrder": [page_name], "activePageName": page_name,
-    }, indent=2))
-    write(REPORT_DIR / "definition" / "pages" / page_name / "page.json", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/1.0.0/schema.json",
-        "name": page_name, "displayName": "Overview",
-        "displayOption": "FitToPage", "height": 720, "width": 1280,
-    }, indent=2))
+    # PBIR-Legacy report.json — a single empty page. Using the legacy format
+    # (definition.pbir version 1.0) rather than the newer PBIR /definition
+    # folder: it's far more reproducible, and the section's `visualContainers`
+    # array is exactly the structure Desktop's renderer expects (an earlier
+    # new-PBIR attempt failed with "Cannot read properties of undefined
+    # (reading 'visualContainers')" because the page structure was malformed).
+    report_json = {
+        "config": json.dumps({"version": "5.55", "activeSectionIndex": 0}),
+        "layoutOptimization": 0,
+        "sections": [
+            {
+                "name": "ReportSection1",
+                "displayName": "Overview",
+                "filters": "[]",
+                "ordinal": 0,
+                "visualContainers": [],
+                "config": "{}",
+                "displayOption": 1,
+                "width": 1280,
+                "height": 720,
+            }
+        ],
+        "filters": "[]",
+    }
+    write(REPORT_DIR / "report.json", json.dumps(report_json, indent=2))
 
     write(REPORT_DIR / "definition.pbir", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
-        "version": "4.0",
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/1.0.0/schema.json",
+        "version": "1.0",
         "datasetReference": {"byPath": {"path": f"../{NAME}.SemanticModel"}},
     }, indent=2))
 

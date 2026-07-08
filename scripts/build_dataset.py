@@ -241,11 +241,23 @@ def build_peer_group_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_dim_respondents(df: pd.DataFrame) -> pd.DataFrame:
-    """Star-schema dimension: one row per respondent, demographics only."""
-    return df[[
+    """Star-schema dimension: one row per respondent, demographics + coverage
+    flags. The flags mark which measurement domains a respondent actually has —
+    NHANES doesn't measure everything on everyone (exam vs. interview, the
+    morning fasting-labs subsample, adult-only questionnaires), so most rows are
+    blank in some domain. Filtering on a flag in Power BI drops those blanks in
+    one click without misrepresenting the data as missing/erroneous."""
+    out = df[[
         "SEQN", "age_years", "age_band", "gender", "race_ethnicity",
         "education", "income_poverty_ratio",
     ]].copy()
+    out["is_adult"] = df["age_years"] >= 18
+    out["has_body_measures"] = df["bmi"].notna()
+    out["has_blood_pressure"] = df["mean_systolic"].notna()
+    out["has_labs"] = df[["total_cholesterol", "hba1c"]].notna().any(axis=1)
+    out["has_fasting_labs"] = df["fasting_glucose"].notna()  # morning subsample
+    out["has_diagnosis_data"] = df["high_bp_diagnosis"].notna()  # adult questionnaire
+    return out
 
 
 def build_fact_body_measures(df: pd.DataFrame) -> pd.DataFrame:
