@@ -222,12 +222,15 @@ def main():
 
     # ---- report (new PBIR format, one empty page) ----
     # Structure + exact property shapes mirror Microsoft's official pbip-demo
-    # (github.com/RuiRomano/pbip-demo). The earlier failures were: (1) a
-    # report.json with only $schema — a valid report.json also needs
-    # themeCollection + settings + a resourcePackages entry pointing to a theme
-    # file that actually exists; and (2) a legacy report.json, which Desktop
-    # couldn't render. This version ships the CY24SU10 base theme it references.
+    # (github.com/RuiRomano/pbip-demo). Earlier failures walked up a chain of
+    # missing pieces: (1) report.json with only $schema failed at
+    # 'visualContainers'; (2) after adding a base theme it failed at
+    # 'themeCurrent ... customTheme' — Desktop's ribbon reads BOTH
+    # themeCollection.baseTheme AND .customTheme, so the demo always ships a
+    # base theme (SharedResources) AND a custom theme (RegisteredResources).
+    # This version ships both theme files.
     page = "overview"
+    report_version = "5.61"
 
     write(REPORT_DIR / "definition.pbir", json.dumps({
         "version": "4.0",
@@ -241,11 +244,16 @@ def main():
 
     write(REPORT_DIR / "definition" / "report.json", json.dumps({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.3.0/schema.json",
-        "themeCollection": {"baseTheme": {"name": "CY24SU10", "type": "SharedResources"}},
-        "resourcePackages": [{
-            "name": "SharedResources", "type": "SharedResources",
-            "items": [{"name": "CY24SU10", "path": "BaseThemes/CY24SU10.json", "type": "BaseTheme"}],
-        }],
+        "themeCollection": {
+            "baseTheme": {"name": "CY24SU10", "reportVersionAtImport": report_version, "type": "SharedResources"},
+            "customTheme": {"name": "NHANES.json", "reportVersionAtImport": report_version, "type": "RegisteredResources"},
+        },
+        "resourcePackages": [
+            {"name": "SharedResources", "type": "SharedResources",
+             "items": [{"name": "CY24SU10", "path": "BaseThemes/CY24SU10.json", "type": "BaseTheme"}]},
+            {"name": "RegisteredResources", "type": "RegisteredResources",
+             "items": [{"name": "NHANES.json", "path": "NHANES.json", "type": "CustomTheme"}]},
+        ],
         "settings": {"useStylableVisualContainerHeader": True},
     }, indent=2))
 
@@ -260,11 +268,16 @@ def main():
         "displayOption": "FitToPage", "height": 720, "width": 1280,
     }, indent=2))
 
-    # ship the base theme the report references (else Desktop errors on it)
-    theme_src = PROJECT_DIR / "templates" / "CY24SU10.json"
-    theme_dst = REPORT_DIR / "StaticResources" / "SharedResources" / "BaseThemes" / "CY24SU10.json"
-    theme_dst.parent.mkdir(parents=True, exist_ok=True)
-    theme_dst.write_text(theme_src.read_text(encoding="utf-8"), encoding="utf-8")
+    # ship both theme files the report references (else Desktop errors on them):
+    # base theme -> StaticResources/SharedResources/BaseThemes/, custom theme ->
+    # StaticResources/RegisteredResources/
+    base_dst = REPORT_DIR / "StaticResources" / "SharedResources" / "BaseThemes" / "CY24SU10.json"
+    base_dst.parent.mkdir(parents=True, exist_ok=True)
+    base_dst.write_text((PROJECT_DIR / "templates" / "CY24SU10.json").read_text(encoding="utf-8"), encoding="utf-8")
+
+    custom_dst = REPORT_DIR / "StaticResources" / "RegisteredResources" / "NHANES.json"
+    custom_dst.parent.mkdir(parents=True, exist_ok=True)
+    custom_dst.write_text((PROJECT_DIR / "templates" / "NHANES-theme.json").read_text(encoding="utf-8"), encoding="utf-8")
 
     write(REPORT_DIR / ".platform", json.dumps({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
