@@ -53,6 +53,9 @@ jobs:
       - name: Run the exploration notebook
         run: python -m papermill notebooks/exploration.ipynb notebooks/executed_exploration.ipynb
 
+      - name: Export notebook to HTML
+        run: python -m nbconvert --to html notebooks/executed_exploration.ipynb --output executed_exploration.html
+
       - name: Upload marts + executed notebook
         uses: actions/upload-artifact@v4
         with:
@@ -60,4 +63,5 @@ jobs:
           path: |
             exports/*.csv
             notebooks/executed_exploration.ipynb
+            notebooks/executed_exploration.html
           retention-days: 30
