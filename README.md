@@ -1,5 +1,7 @@
 # NHANES Cardiometabolic Warehouse
 
+[![Pipeline CI](https://github.com/jdstigma/NHANES-Cardiometabolic-Warehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/jdstigma/NHANES-Cardiometabolic-Warehouse/actions/workflows/ci.yml)
+
 Real (not synthetic) health survey data from the CDC's [NHANES](https://wwwn.cdc.gov/nchs/nhanes/) August 2021-August 2023 cycle, piped into a star-schema dataset for Power BI. No database, no Codespaces — one Python script builds everything locally; a notebook and CI workflow build on top of it for exploration and pipeline validation.
 
 ## Stack
@@ -62,7 +64,13 @@ Suggested visuals:
 
 ## Exploration notebook
 
-`notebooks/exploration.ipynb` reads the marts in `exports/` (it doesn't re-run the pipeline) and charts the same story as the Power BI report — BMI/BP/glucose distributions, anomaly breakdowns by category and age band, and the BMI-vs-glucose scatter — for anyone who wants the analysis without opening Power BI. Run `python scripts/build_dataset.py` first if `exports/` doesn't exist yet, then open the notebook normally in Jupyter/VS Code.
+`notebooks/exploration.ipynb` reads the marts in `exports/` (it doesn't re-run the pipeline) and goes beyond the Power BI report with three additional analyses:
+
+- **Regression** — OLS of fasting glucose on BMI, waist circumference, systolic BP, and age (`statsmodels`). The residuals are a second, independent outlier lens: respondents whose glucose is unusual *given* their other measurements, not just unusual relative to their peer group.
+- **Clustering** — K-means (`scikit-learn`) on the fasting-subsample lab panel, with no diagnosis labels used as input. On the first real run this cleanly separated a ~790-person high-risk cluster (BMI 35.8, HbA1c 6.5%, 35% diabetes diagnosis rate) from two lower-risk clusters (~4% diagnosis rate each) — the diagnosis-rate gap is the after-the-fact sanity check that the clusters mean something clinically.
+- **Lean Six Sigma process capability** — Cp, Cpk, % out of spec, DPMO, and sigma level for BMI, blood pressure, glucose, HbA1c, and cholesterol, treating each clinical reference range as a spec limit (LSL/USL). Cpk is uniformly low/negative across the board, which is expected and itself the finding: a general-population health survey isn't a controlled process centered on "healthy," unlike what Cpk normally measures in manufacturing.
+
+Run `python scripts/build_dataset.py` first if `exports/` doesn't exist yet, then open the notebook normally in Jupyter/VS Code. All of the above was verified executing end-to-end (locally and in CI) before being committed.
 
 ## CI
 
