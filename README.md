@@ -74,7 +74,7 @@ Two legacy files are also written for backward compatibility with an existing `.
 
 ### Fast path — generate a ready-made Power BI project (2 steps)
 
-`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all seven star-schema tables, the `SEQN` relationships, and the headline DAX measures already wired up — so you don't have to import each CSV or build the model by hand:
+`scripts/build_powerbi_project.py` generates a **PBIP** (Power BI Project) with all seven star-schema tables, the `SEQN` relationships, the headline DAX measures, and an **Overview report page with 5 starter visuals** (KPI cards for Respondents / Obesity Rate / Diabetic-Range Rate, a bar chart of every headline metric, and a bar chart of flagged anomalies by category) — so you don't have to import each CSV or build the model and report by hand:
 
 ```bash
 python scripts/build_dataset.py          # 1. build exports/*.csv

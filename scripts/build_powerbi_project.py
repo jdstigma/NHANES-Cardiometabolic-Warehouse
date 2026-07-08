@@ -166,6 +166,60 @@ def relationships_tmdl() -> str:
     return "\n".join(blocks)
 
 
+# ---- starter report visuals (PBIR visual.json) ---------------------------
+# Field/query shapes mirror Microsoft's official pbip-demo visual.json files.
+# A "field" is (kind, entity, property): kind "Measure" or "Column"; entity is
+# the home table. queryRef = "<entity>.<property>", the form Desktop writes.
+
+def _field(kind: str, entity: str, prop: str) -> dict:
+    return {
+        "field": {kind: {"Expression": {"SourceRef": {"Entity": entity}}, "Property": prop}},
+        "queryRef": f"{entity}.{prop}",
+        "nativeQueryRef": prop,
+    }
+
+
+def _visual(name, vtype, x, y, w, h, z, query_state, sort_field=None):
+    visual = {"visualType": vtype, "query": {"queryState": query_state}, "drillFilterOtherVisuals": True}
+    if sort_field:
+        kind, entity, prop = sort_field
+        visual["query"]["sortDefinition"] = {
+            "sort": [{"field": {kind: {"Expression": {"SourceRef": {"Entity": entity}}, "Property": prop}},
+                      "direction": "Descending"}]
+        }
+    return name, {
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+        "name": name,
+        "position": {"x": x, "y": y, "z": z, "width": w, "height": h, "tabOrder": z},
+        "visual": visual,
+    }
+
+
+def build_visuals() -> list:
+    """A starter dashboard on the Overview page: 3 KPI cards + 2 bar charts.
+    Uses measures baked into the model and columns from the marts."""
+    return [
+        # --- KPI cards (role "Data" takes measures) ---
+        _visual("card_respondents", "cardVisual", 20, 20, 400, 120, 1000,
+                {"Data": {"projections": [_field("Measure", "dim_respondents", "Respondents")]}}),
+        _visual("card_obesity", "cardVisual", 440, 20, 400, 120, 2000,
+                {"Data": {"projections": [_field("Measure", "fact_body_measures", "Obesity Rate")]}}),
+        _visual("card_diabetic", "cardVisual", 860, 20, 400, 120, 3000,
+                {"Data": {"projections": [_field("Measure", "fact_labs", "Diabetic-Range Rate")]}}),
+        # --- KPI overview bar: every headline metric (value_pct is a column,
+        #     one row per metric, so the default Sum aggregation = the value) ---
+        _visual("bar_kpis", "clusteredBarChart", 20, 160, 610, 540, 4000,
+                {"Category": {"projections": [_field("Column", "metrics_summary", "metric")]},
+                 "Y": {"projections": [_field("Column", "metrics_summary", "value_pct")]}},
+                sort_field=("Column", "metrics_summary", "value_pct")),
+        # --- anomalies by category (Flagged Anomalies is a measure) ---
+        _visual("bar_anomalies", "clusteredBarChart", 650, 160, 610, 540, 5000,
+                {"Category": {"projections": [_field("Column", "fact_anomalies", "field_category")]},
+                 "Y": {"projections": [_field("Measure", "fact_anomalies", "Flagged Anomalies")]}},
+                sort_field=("Measure", "fact_anomalies", "Flagged Anomalies")),
+    ]
+
+
 def main():
     if not EXPORTS.exists() or not (EXPORTS / "dim_respondents.csv").exists():
         raise SystemExit("exports/ is missing — run `python scripts/build_dataset.py` first.")
@@ -271,6 +325,13 @@ def main():
         "displayOption": "FitToPage", "height": 720, "width": 1280,
     }, indent=2))
 
+    # starter visuals — one folder + visual.json per visual (Desktop discovers
+    # them from the folder structure; no need to list them in page.json)
+    visuals = build_visuals()
+    for vname, vdoc in visuals:
+        write(REPORT_DIR / "definition" / "pages" / page / "visuals" / vname / "visual.json",
+              json.dumps(vdoc, indent=2))
+
     # ship both theme files the report references (else Desktop errors on them):
     # base theme -> StaticResources/SharedResources/BaseThemes/, custom theme ->
     # StaticResources/RegisteredResources/
@@ -299,6 +360,7 @@ def main():
     print(f"Generated {PROJECT_DIR / (NAME + '.pbip')}")
     print(f"  semantic model: {len(TABLES)} tables, reading CSVs from {exports_path}")
     print("  measures:", sum(len(m) for m in MEASURES.values()))
+    print(f"  report: 1 page, {len(visuals)} starter visuals")
     print("\nOpen NHANES.pbip in Power BI Desktop (with TMDL + PBIR preview features enabled).")
 
 
