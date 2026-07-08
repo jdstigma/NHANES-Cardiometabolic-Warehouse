@@ -126,9 +126,9 @@ MIN_PEER_GROUP_SIZE = 10
 Z_THRESHOLD = 3
 
 
-def download_file(stem: str) -> Path:
+def download_file(stem: str, force: bool = False) -> Path:
     dest = DATA_DIR / f"{stem}.xpt"
-    if dest.exists():
+    if dest.exists() and not force:
         return dest
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     url = f"{BASE_URL}/{stem}.xpt"
@@ -142,8 +142,8 @@ def download_file(stem: str) -> Path:
     return dest
 
 
-def load_file(stem: str, columns: dict) -> pd.DataFrame:
-    path = download_file(stem)
+def load_file(stem: str, columns: dict, force: bool = False) -> pd.DataFrame:
+    path = download_file(stem, force=force)
     df = pd.read_sas(path, format="xport")
     keep = ["SEQN"] + list(columns.keys())
     missing = [c for c in keep if c not in df.columns]
@@ -154,11 +154,12 @@ def load_file(stem: str, columns: dict) -> pd.DataFrame:
     return df
 
 
-def build_merged_table() -> pd.DataFrame:
-    print("Downloading + merging NHANES 2021-2023 files...")
+def build_merged_table(force: bool = False) -> pd.DataFrame:
+    label = "re-downloading" if force else "downloading (cached where present)"
+    print(f"NHANES 2021-2023 files — {label} + merging...")
     merged = None
     for stem, columns in FILES.items():
-        df = load_file(stem, columns)
+        df = load_file(stem, columns, force=force)
         print(f"  {stem:<10} {len(df):>6,} rows, {len(columns)} fields")
         merged = df if merged is None else merged.merge(df, on="SEQN", how="left")
     return merged
@@ -306,7 +307,18 @@ def build_fact_anomalies(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main():
-    df = build_merged_table()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Build the NHANES cardiometabolic marts.")
+    parser.add_argument(
+        "--force-download", action="store_true",
+        help="Re-download every source .xpt from CDC even if a cached copy exists "
+             "in data/raw/ (used by the manual-refresh workflow to guarantee the "
+             "latest published data).",
+    )
+    args = parser.parse_args()
+
+    df = build_merged_table(force=args.force_download)
     df = add_derived_fields(df)
     df = flag_anomalies(df)
     summary = build_peer_group_summary(df)

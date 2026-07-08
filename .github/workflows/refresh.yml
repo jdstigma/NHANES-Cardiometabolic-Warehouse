@@ -1,0 +1,58 @@
+name: Manual Refresh
+
+# Manually-triggered full refresh of the source data and rendered outputs.
+# Unlike ci.yml (which validates on every push), this force re-downloads every
+# NHANES source file from CDC, rebuilds the marts + notebook + HTML, commits
+# the refreshed rendered notebook and HTML back to the repo, and uploads the
+# CSV marts as a downloadable artifact for Power BI.
+on:
+  workflow_dispatch:
+
+# needed so the job can push the refreshed notebook/HTML back to main
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Force fresh re-download + rebuild marts
+        run: python scripts/build_dataset.py --force-download
+
+      - name: Re-run the notebook in place (embeds fresh outputs)
+        run: python -m papermill notebooks/exploration.ipynb notebooks/exploration.ipynb
+
+      - name: Regenerate the HTML export
+        run: python -m nbconvert --to html notebooks/exploration.ipynb --output exploration.html
+
+      - name: Upload refreshed CSV marts for Power BI
+        uses: actions/upload-artifact@v4
+        with:
+          name: nhanes-marts-refreshed
+          path: exports/*.csv
+          retention-days: 30
+
+      - name: Commit refreshed notebook + HTML back to the repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add notebooks/exploration.ipynb notebooks/exploration.html
+          if git diff --cached --quiet; then
+            echo "No changes to commit — source data and outputs are unchanged."
+          else
+            git commit -m "Refresh: re-run pipeline + notebook against latest NHANES data [skip ci]"
+            git push
+          fi
