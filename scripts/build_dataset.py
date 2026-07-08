@@ -306,6 +306,90 @@ def build_fact_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     return pd.concat(rows, ignore_index=True)
 
 
+def build_metrics_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Pre-aggregated headline KPIs for Power BI cards — one row per metric,
+    long format (metric / category / value_pct / numerator / denominator /
+    description). NOT respondent-grain and does NOT join on SEQN; it's a
+    standalone summary table like nhanes_peer_group_summary. Every clinical
+    prevalence is computed on adults (18+) and on respondents who actually
+    have the relevant measurement, so denominators vary per metric."""
+    adults = df[df["age_years"] >= 18]
+    rows = []
+
+    def add(metric, category, mask, denom_mask, description):
+        denom = int(denom_mask.sum())
+        num = int((mask & denom_mask).sum())
+        pct = round(100 * num / denom, 1) if denom else None
+        rows.append({
+            "metric": metric, "category": category, "value_pct": pct,
+            "numerator": num, "denominator": denom, "description": description,
+        })
+
+    a = adults
+    male = a["gender"] == "Male"
+
+    # body composition
+    has_bmi = a["bmi"].notna()
+    add("Overweight or obese (BMI >= 25)", "Body", a["bmi"] >= 25, has_bmi,
+        "Adults 18+ with a measured BMI at or above 25.")
+    add("Obese (BMI >= 30)", "Body", a["bmi"] >= 30, has_bmi,
+        "Adults 18+ with a measured BMI at or above 30.")
+
+    # glycemic
+    has_a1c = a["hba1c"].notna()
+    add("Prediabetic range (HbA1c 5.7-6.4%)", "Glycemic",
+        (a["hba1c"] >= 5.7) & (a["hba1c"] < 6.5), has_a1c,
+        "Adults 18+ whose HbA1c falls in the prediabetic range.")
+    add("Diabetic range (HbA1c >= 6.5%)", "Glycemic", a["hba1c"] >= 6.5, has_a1c,
+        "Adults 18+ whose HbA1c is in the diabetic range (regardless of diagnosis).")
+    add("Undiagnosed diabetes", "Care gap",
+        (a["hba1c"] >= 6.5) & (a["diabetes_diagnosis"] == "No"),
+        has_a1c & (a["hba1c"] >= 6.5),
+        "Of adults with diabetic-range HbA1c, the share who report no diabetes diagnosis.")
+
+    # blood pressure
+    has_bp = a["mean_systolic"].notna() & a["mean_diastolic"].notna()
+    htn = (a["mean_systolic"] >= 130) | (a["mean_diastolic"] >= 80)
+    add("Hypertensive BP (>= 130/80)", "Cardiovascular", htn, has_bp,
+        "Adults 18+ whose measured BP meets the hypertension threshold.")
+    add("Undiagnosed hypertension", "Care gap",
+        htn & (a["high_bp_diagnosis"] == "No"), has_bp & htn,
+        "Of adults with hypertensive-range BP, the share who report no hypertension diagnosis.")
+
+    # lipids
+    has_ldl = a["ldl_cholesterol"].notna()
+    add("High LDL (>= 160 mg/dL)", "Lipids", a["ldl_cholesterol"] >= 160, has_ldl,
+        "Adults 18+ with measured LDL at or above 160 mg/dL.")
+    add("Undiagnosed high cholesterol", "Care gap",
+        (a["ldl_cholesterol"] >= 160) & (a["high_cholesterol_diagnosis"] == "No"),
+        has_ldl & (a["ldl_cholesterol"] >= 160),
+        "Of adults with high measured LDL, the share who report no high-cholesterol diagnosis.")
+
+    # metabolic syndrome: >= 3 of 5 criteria, adults with all 5 measured
+    ms_fields = ["waist_cm", "triglycerides", "hdl_cholesterol", "mean_systolic",
+                 "mean_diastolic", "fasting_glucose"]
+    ms_full = a[ms_fields].notna().all(axis=1)
+    ms_count = (
+        ((male & (a["waist_cm"] > 102)) | (~male & (a["waist_cm"] > 88))).astype(int)
+        + (a["triglycerides"] >= 150).astype(int)
+        + ((male & (a["hdl_cholesterol"] < 40)) | (~male & (a["hdl_cholesterol"] < 50))).astype(int)
+        + ((a["mean_systolic"] >= 130) | (a["mean_diastolic"] >= 85)).astype(int)
+        + (a["fasting_glucose"] >= 100).astype(int)
+    )
+    add("Metabolic syndrome (>= 3 of 5)", "Cardiovascular", ms_count >= 3, ms_full,
+        "Adults 18+ with all five criteria measured who meet at least three "
+        "(waist, triglycerides, HDL, BP, fasting glucose).")
+
+    # smoking
+    has_smk = a["smoking_status"].notna()
+    add("Current smoker", "Lifestyle", a["smoking_status"] == "Current smoker", has_smk,
+        "Adults 18+ who currently smoke (every day or some days).")
+    add("Former smoker", "Lifestyle", a["smoking_status"] == "Former smoker", has_smk,
+        "Adults 18+ who smoked 100+ cigarettes but no longer smoke.")
+
+    return pd.DataFrame(rows)
+
+
 def main():
     import argparse
 
@@ -322,6 +406,7 @@ def main():
     df = add_derived_fields(df)
     df = flag_anomalies(df)
     summary = build_peer_group_summary(df)
+    metrics = build_metrics_summary(df)
 
     EXPORT_DIR.mkdir(exist_ok=True)
 
@@ -329,6 +414,7 @@ def main():
     # the single wide table — the star-schema marts below are additive.
     df.to_csv(EXPORT_DIR / "nhanes_respondents.csv", index=False)
     summary.to_csv(EXPORT_DIR / "nhanes_peer_group_summary.csv", index=False)
+    metrics.to_csv(EXPORT_DIR / "metrics_summary.csv", index=False)
 
     marts = {
         "dim_respondents": build_dim_respondents(df),
@@ -349,6 +435,7 @@ def main():
         print(f"  {name:<22} {len(mart_df):>6,} rows")
     print(f"  {'nhanes_respondents':<22} {len(df):>6,} rows  (legacy wide table)")
     print(f"  {'nhanes_peer_group_summary':<22} {len(summary):>6,} rows  (legacy)")
+    print(f"  {'metrics_summary':<22} {len(metrics):>6,} rows  (headline KPIs)")
     print("\nDone. Get Data -> Text/CSV in Power BI, pointed at the exports/ folder.")
 
 

@@ -47,20 +47,41 @@ Outputs land in `exports/` as a star schema:
 
 All keyed on `SEQN` (the NHANES respondent ID). `fact_anomalies` is the one genuinely one-to-many relationship — a respondent can appear multiple times if several fields are flagged; every other fact table is one-to-one with `dim_respondents`.
 
+A pre-aggregated KPI table is also written — **`metrics_summary.csv`** — one row per headline metric (`metric`, `category`, `value_pct`, `numerator`, `denominator`, `description`). It's a standalone summary (not respondent-grain, doesn't join on `SEQN`), meant for KPI cards. Current values (adults 18+, denominators vary per metric since each counts only respondents with the relevant measurement):
+
+| Metric | Value | Reading |
+|---|---|---|
+| Overweight or obese (BMI ≥ 25) | 71.9% | of adults with measured BMI |
+| Obese (BMI ≥ 30) | 40.5% | " |
+| Prediabetic HbA1c (5.7–6.4%) | 26.5% | of adults with measured HbA1c |
+| Diabetic-range HbA1c (≥ 6.5%) | 12.0% | " |
+| **Undiagnosed diabetes** | **16.1%** | of diabetic-range adults reporting no diagnosis |
+| Hypertensive BP (≥ 130/80) | 40.3% | of adults with measured BP |
+| **Undiagnosed hypertension** | **46.9%** | of hypertensive-BP adults reporting no diagnosis |
+| High LDL (≥ 160 mg/dL) | 8.4% | of adults with measured LDL |
+| **Undiagnosed high cholesterol** | **44.4%** | of high-LDL adults reporting no diagnosis |
+| Metabolic syndrome (≥ 3 of 5) | 32.2% | of adults with all 5 criteria measured |
+| Current smoker | 14.6% | of adults 18+ |
+| Former smoker | 25.2% | " |
+
+The **care-gap** metrics (bold) are the standout finding: nearly half of adults with hypertensive-range blood pressure or high LDL, and one in six with diabetic-range HbA1c, report no corresponding diagnosis. (These are exploratory, unweighted sample figures — see the note above.)
+
 Two legacy files are also written for backward compatibility with an existing `.pbix` built before the marts existed — **`nhanes_respondents.csv`** (the original wide table, everything in one place) and **`nhanes_peer_group_summary.csv`** (aggregated by age band + gender). New reports should use the star schema above instead.
 
 ## Connecting Power BI
 
 1. Run `python scripts/build_dataset.py` (above).
-2. Power BI Desktop → **Get Data → Text/CSV** → import each `dim_*`/`fact_*` CSV from `exports/`.
-3. In **Model view**, create relationships: `dim_respondents[SEQN]` (one) → each `fact_*[SEQN]` (many, even though body_measures/blood_pressure/labs/diagnoses happen to be 1:1 in practice — Power BI still models it as one-to-many from the dimension side). `fact_anomalies[SEQN]` is a genuine many relationship.
-4. To refresh: re-run the script, then hit **Refresh** in Power BI. No Power BI Service/Pro license needed since this is a plain local CSV connection — refresh is manual (open the file, click Refresh), same limitation as the healthcare-data-warehouse project's Power BI setup.
+2. Power BI Desktop → **Get Data → Text/CSV** → import each `dim_*`/`fact_*` CSV from `exports/`, plus `metrics_summary.csv` for KPI cards.
+3. In **Model view**, create relationships: `dim_respondents[SEQN]` (one) → each `fact_*[SEQN]` (many, even though body_measures/blood_pressure/labs/diagnoses happen to be 1:1 in practice — Power BI still models it as one-to-many from the dimension side). `fact_anomalies[SEQN]` is a genuine many relationship. `metrics_summary` stands alone (no relationship — it's already aggregated).
+4. Add the measures in [`powerbi/measures.md`](powerbi/measures.md) — ready-to-paste DAX for the *dynamic* versions of these metrics that recompute under demographic slicers (age band, gender, race), which the static CSV can't.
+5. To refresh: re-run the script, then hit **Refresh** in Power BI. No Power BI Service/Pro license needed since this is a plain local CSV connection — refresh is manual (open the file, click Refresh), same limitation as the healthcare-data-warehouse project's Power BI setup.
 
 Suggested visuals:
+- **KPI cards** straight off `metrics_summary.csv` (filter by `category`), leading with the three care-gap metrics.
 - Table on `fact_anomalies` joined to `dim_respondents`, sliced by `field_category`, showing `field_label`, `value`, `zscore`, `age_band`, `gender` — drill-down into exactly who's flagged and why.
 - Bar chart of anomaly count by `field_category` (Body Measures / Blood Pressure / Labs) from `fact_anomalies`.
 - Scatter plot of `bmi` (from `fact_body_measures`) vs. `fasting_glucose` (from `fact_labs`), colored by `diabetes_diagnosis` (from `fact_diagnoses`), to see where undiagnosed outliers cluster.
-- Bar chart of `anomaly_rate` by `age_band` + `gender` from `nhanes_peer_group_summary.csv`.
+- Care-gap bars using the DAX measures, split by `age_band` + `gender` — this is where the dynamic measures beat the static CSV.
 
 ## Exploration notebook
 

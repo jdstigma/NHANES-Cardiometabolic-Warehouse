@@ -47,6 +47,13 @@ jobs:
               df = pd.read_csv(f"exports/{mart}.csv")
               assert set(dim["SEQN"]) >= set(df["SEQN"]), f"{mart} has SEQNs not in dim_respondents"
 
+          metrics = pd.read_csv("exports/metrics_summary.csv")
+          assert len(metrics) >= 10, f"metrics_summary has only {len(metrics)} rows"
+          bad = metrics[(metrics["value_pct"] < 0) | (metrics["value_pct"] > 100)]
+          assert bad.empty, f"metrics_summary has out-of-range percentages:\n{bad}"
+          assert (metrics["numerator"] <= metrics["denominator"]).all(), \
+              "metrics_summary has a numerator exceeding its denominator"
+
           print("All mart validations passed.")
           PY
 
