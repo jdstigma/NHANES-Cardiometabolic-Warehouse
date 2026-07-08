@@ -244,6 +244,9 @@ def main():
 
     write(REPORT_DIR / "definition" / "report.json", json.dumps({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.3.0/schema.json",
+        # required by the report/1.3.0 schema (along with $schema + themeCollection);
+        # "None" = no mobile-optimized layout
+        "layoutOptimization": "None",
         "themeCollection": {
             "baseTheme": {"name": "CY24SU10", "reportVersionAtImport": report_version, "type": "SharedResources"},
             "customTheme": {"name": "NHANES.json", "reportVersionAtImport": report_version, "type": "RegisteredResources"},
