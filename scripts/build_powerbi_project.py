@@ -43,7 +43,8 @@ REPORT_DIR = PROJECT_DIR / f"{NAME}.Report"
 # star-schema tables only (skip the two legacy wide files)
 TABLES = [
     "dim_respondents", "fact_body_measures", "fact_blood_pressure",
-    "fact_labs", "fact_diagnoses", "fact_anomalies", "metrics_summary",
+    "fact_labs", "fact_diagnoses", "fact_anomalies", "fact_care_gaps",
+    "metrics_summary",
 ]
 
 # pandas dtype -> (TMDL dataType, M type expression)
@@ -90,6 +91,17 @@ MEASURES = {
         # value_pct on an axis via a measure (a raw column in a value well
         # renders blank without an aggregation wrapper).
         ("Metric Value", "SUM ( metrics_summary[value_pct] )", "0.0"),
+    ],
+    "fact_care_gaps": [
+        # simple single-table rates off the precomputed flags — no cross-table
+        # DAX, so safe to bake in. Each slices by dim_respondents via the
+        # SEQN relationship, so it works split by age band / gender.
+        ("Undiagnosed Diabetes Rate",
+         "DIVIDE ( SUM ( fact_care_gaps[undiagnosed_diabetes] ), SUM ( fact_care_gaps[diabetic_range] ) )", "0.0%"),
+        ("Undiagnosed Hypertension Rate",
+         "DIVIDE ( SUM ( fact_care_gaps[undiagnosed_hypertension] ), SUM ( fact_care_gaps[hypertensive] ) )", "0.0%"),
+        ("Undiagnosed High Cholesterol Rate",
+         "DIVIDE ( SUM ( fact_care_gaps[undiagnosed_high_cholesterol] ), SUM ( fact_care_gaps[high_ldl] ) )", "0.0%"),
     ],
 }
 
@@ -258,10 +270,38 @@ def build_demographics_visuals() -> list:
     ]
 
 
+def build_caregaps_visuals() -> list:
+    """Page 3 — Care Gaps by Demographics: the undiagnosed-condition rates
+    (from the precomputed fact_care_gaps mart) as cards and split by age band /
+    gender. These are the project's standout finding — nearly half of adults
+    with hypertensive BP or high LDL report no diagnosis."""
+    return [
+        _visual("card_undiag_htn", "cardVisual", 20, 20, 400, 120, 1000,
+                {"Data": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed Hypertension Rate")]}}),
+        _visual("card_undiag_chol", "cardVisual", 440, 20, 400, 120, 2000,
+                {"Data": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed High Cholesterol Rate")]}}),
+        _visual("card_undiag_diabetes", "cardVisual", 860, 20, 400, 120, 3000,
+                {"Data": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed Diabetes Rate")]}}),
+        _visual("bar_undiag_htn_age", "clusteredBarChart", 20, 160, 610, 260, 4000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed Hypertension Rate")]}}),
+        _visual("bar_undiag_htn_gender", "clusteredBarChart", 650, 160, 610, 260, 5000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "gender")]},
+                 "Y": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed Hypertension Rate")]}}),
+        _visual("bar_undiag_diabetes_age", "clusteredBarChart", 20, 440, 610, 260, 6000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed Diabetes Rate")]}}),
+        _visual("bar_undiag_chol_age", "clusteredBarChart", 650, 440, 610, 260, 7000,
+                {"Category": {"projections": [_field("Column", "dim_respondents", "age_band")]},
+                 "Y": {"projections": [_field("Measure", "fact_care_gaps", "Undiagnosed High Cholesterol Rate")]}}),
+    ]
+
+
 # (page_id, display name, visuals) — page_id is the folder name; first is active
 PAGES = [
     ("overview", "Overview", build_overview_visuals),
     ("demographics", "Prevalence by Demographics", build_demographics_visuals),
+    ("caregaps", "Care Gaps by Demographics", build_caregaps_visuals),
 ]
 
 

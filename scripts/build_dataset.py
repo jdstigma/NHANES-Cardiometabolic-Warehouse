@@ -295,6 +295,32 @@ def build_fact_diagnoses(df: pd.DataFrame) -> pd.DataFrame:
     ]].copy()
 
 
+def build_fact_care_gaps(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-respondent care-gap flags (adults 18+): whether a respondent is
+    condition-positive by biomarker, and whether that condition is undiagnosed.
+    Precomputed here (0/1 ints) so the Power BI care-gap rates are trivial
+    single-table measures — DIVIDE(SUM(undiagnosed), SUM(condition)) — instead
+    of fragile cross-table DAX that could block the whole model from loading.
+    NaN comparisons are False, so non-measured respondents contribute 0 to both
+    numerator and denominator and don't distort the rate."""
+    adult = df["age_years"] >= 18
+    out = pd.DataFrame({"SEQN": df["SEQN"]})
+
+    diabetic = adult & (df["hba1c"] >= 6.5)
+    out["diabetic_range"] = diabetic.astype(int)
+    out["undiagnosed_diabetes"] = (diabetic & (df["diabetes_diagnosis"] == "No")).astype(int)
+
+    hypertensive = adult & ((df["mean_systolic"] >= 130) | (df["mean_diastolic"] >= 80))
+    out["hypertensive"] = hypertensive.astype(int)
+    out["undiagnosed_hypertension"] = (hypertensive & (df["high_bp_diagnosis"] == "No")).astype(int)
+
+    high_ldl = adult & (df["ldl_cholesterol"] >= 160)
+    out["high_ldl"] = high_ldl.astype(int)
+    out["undiagnosed_high_cholesterol"] = (high_ldl & (df["high_cholesterol_diagnosis"] == "No")).astype(int)
+
+    return out
+
+
 def build_fact_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     """Long format: one row per (respondent, field) that's flagged as an
     outlier, rather than wide boolean columns — much easier to slice by
@@ -435,6 +461,7 @@ def main():
         "fact_labs": build_fact_labs(df),
         "fact_diagnoses": build_fact_diagnoses(df),
         "fact_anomalies": build_fact_anomalies(df),
+        "fact_care_gaps": build_fact_care_gaps(df),
     }
     for name, mart_df in marts.items():
         mart_df.to_csv(EXPORT_DIR / f"{name}.csv", index=False)

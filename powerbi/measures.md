@@ -1,5 +1,12 @@
 # Power BI DAX measures
 
+> **Note:** the generated PBIP (`scripts/build_powerbi_project.py`) already bakes
+> in the headline measures **and** the undiagnosed care-gap rates (the latter as
+> simple single-table measures over the `fact_care_gaps` mart). This file is a
+> reference for the DAX, and for the *alternative* cross-table (`TREATAS`)
+> formulation if you'd rather compute the care gaps in DAX than from the
+> precomputed flags. You don't need to paste anything for the default project.
+
 Ready-to-paste DAX for the star-schema marts. Create these as **measures** (not
 calculated columns) on the table noted in each heading — in Power BI Desktop:
 right-click the table in the Data pane → **New measure** → paste.

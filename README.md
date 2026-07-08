@@ -46,6 +46,7 @@ Outputs land in `exports/` as a star schema:
 | **`fact_labs.csv`** | 1 row/respondent | Total/HDL/LDL cholesterol, triglycerides, fasting glucose, HbA1c, insulin + z-score/outlier flag per field |
 | **`fact_diagnoses.csv`** | 1 row/respondent | Self-reported diabetes, hypertension, high cholesterol, smoking (raw fields + derived `smoking_status`: Never/Former/Current), CHD, heart attack, stroke |
 | **`fact_anomalies.csv`** | 1 row per flagged (respondent, field) | Long format: `SEQN`, `field`, `field_label`, `field_category`, `value`, `zscore` — every outlier a respondent has, one per row |
+| **`fact_care_gaps.csv`** | 1 row/respondent | Precomputed 0/1 flags (adults 18+): condition-positive by biomarker (`diabetic_range`, `hypertensive`, `high_ldl`) and whether undiagnosed (`undiagnosed_diabetes`, `undiagnosed_hypertension`, `undiagnosed_high_cholesterol`). Lets Power BI compute undiagnosed rates as simple single-table measures. |
 
 All keyed on `SEQN` (the NHANES respondent ID). `fact_anomalies` is the one genuinely one-to-many relationship — a respondent can appear multiple times if several fields are flagged; every other fact table is one-to-one with `dim_respondents`.
 
@@ -78,8 +79,9 @@ Two legacy files are also written for backward compatibility with an existing `.
 
 - **Overview**: KPI cards (Respondents, Obesity Rate, Diabetic-Range Rate), a bar of every headline metric, and flagged anomalies by category.
 - **Prevalence by Demographics**: cards (Overweight+, Prediabetes, respondents-with-anomaly) plus obesity/diabetic/prediabetes rates broken out by age band and gender.
+- **Care Gaps by Demographics**: the undiagnosed-condition rates (hypertension, high cholesterol, diabetes) as cards and split by age band / gender — the project's standout finding.
 
-The visuals only use measures baked into the model. The *undiagnosed care-gap* measures are intentionally left out of the model (a bad cross-table DAX measure blocks the whole model from loading) — paste them from [`powerbi/measures.md`](powerbi/measures.md) via the GUI, then you can add matching care-gap visuals.
+All visuals use measures baked into the model. The undiagnosed care-gap rates are computed as simple single-table measures over the precomputed `fact_care_gaps` flags (rather than fragile cross-table DAX), so they're safe to bake in and render out of the box.
 
 ```bash
 python scripts/build_dataset.py          # 1. build exports/*.csv

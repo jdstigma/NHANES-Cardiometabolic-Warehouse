@@ -43,7 +43,7 @@ jobs:
           anomalies = pd.read_csv("exports/fact_anomalies.csv")
           assert len(anomalies) > 0, "fact_anomalies is empty — outlier detection may be broken"
 
-          for mart in ["fact_body_measures", "fact_blood_pressure", "fact_labs", "fact_diagnoses"]:
+          for mart in ["fact_body_measures", "fact_blood_pressure", "fact_labs", "fact_diagnoses", "fact_care_gaps"]:
               df = pd.read_csv(f"exports/{mart}.csv")
               assert set(dim["SEQN"]) >= set(df["SEQN"]), f"{mart} has SEQNs not in dim_respondents"
 
