@@ -170,16 +170,19 @@ def main():
     if not EXPORTS.exists() or not (EXPORTS / "dim_respondents.csv").exists():
         raise SystemExit("exports/ is missing — run `python scripts/build_dataset.py` first.")
 
-    # Surgically remove the orphaned report /definition folder left by the old
-    # (new-PBIR) report format — the current legacy report.json would otherwise
-    # sit alongside it and confuse Desktop. Overwriting everything else in place
-    # is fine. ignore_errors so a lock (e.g. project open in Power BI) doesn't
-    # crash the run — but note: if the project IS open, the .tmdl writes below
-    # will fail too, so close it in Power BI Desktop before regenerating.
+    # Remove stale report artifacts from earlier format attempts so a leftover
+    # file can't confuse Desktop (e.g. a legacy report.json sitting next to the
+    # new-PBIR definition/ folder). Overwriting everything else in place is fine.
+    # ignore_errors so a lock doesn't crash the run — but if the project is open
+    # in Power BI Desktop the .tmdl/.json writes below will fail too, so CLOSE it
+    # before regenerating.
     import shutil
-    stale_report_def = REPORT_DIR / "definition"
-    if stale_report_def.exists():
-        shutil.rmtree(stale_report_def, ignore_errors=True)
+    stale_legacy_report = REPORT_DIR / "report.json"  # from the legacy attempt
+    if stale_legacy_report.exists():
+        try:
+            stale_legacy_report.unlink()
+        except OSError:
+            pass
 
     exports_path = str(EXPORTS.resolve()).replace("\\", "/") + "/"
 
@@ -217,38 +220,51 @@ def main():
         "config": {"version": "2.0", "logicalId": guid()},
     }, indent=2))
 
-    # ---- report (minimal PBIR, one empty page) ----
-    # PBIR-Legacy report.json — a single empty page. Using the legacy format
-    # (definition.pbir version 1.0) rather than the newer PBIR /definition
-    # folder: it's far more reproducible, and the section's `visualContainers`
-    # array is exactly the structure Desktop's renderer expects (an earlier
-    # new-PBIR attempt failed with "Cannot read properties of undefined
-    # (reading 'visualContainers')" because the page structure was malformed).
-    report_json = {
-        "config": json.dumps({"version": "5.55", "activeSectionIndex": 0}),
-        "layoutOptimization": 0,
-        "sections": [
-            {
-                "name": "ReportSection1",
-                "displayName": "Overview",
-                "filters": "[]",
-                "ordinal": 0,
-                "visualContainers": [],
-                "config": "{}",
-                "displayOption": 1,
-                "width": 1280,
-                "height": 720,
-            }
-        ],
-        "filters": "[]",
-    }
-    write(REPORT_DIR / "report.json", json.dumps(report_json, indent=2))
+    # ---- report (new PBIR format, one empty page) ----
+    # Structure + exact property shapes mirror Microsoft's official pbip-demo
+    # (github.com/RuiRomano/pbip-demo). The earlier failures were: (1) a
+    # report.json with only $schema — a valid report.json also needs
+    # themeCollection + settings + a resourcePackages entry pointing to a theme
+    # file that actually exists; and (2) a legacy report.json, which Desktop
+    # couldn't render. This version ships the CY24SU10 base theme it references.
+    page = "overview"
 
     write(REPORT_DIR / "definition.pbir", json.dumps({
-        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/1.0.0/schema.json",
-        "version": "1.0",
+        "version": "4.0",
         "datasetReference": {"byPath": {"path": f"../{NAME}.SemanticModel"}},
     }, indent=2))
+
+    write(REPORT_DIR / "definition" / "version.json", json.dumps({
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
+        "version": "2.0.0",
+    }, indent=2))
+
+    write(REPORT_DIR / "definition" / "report.json", json.dumps({
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/1.3.0/schema.json",
+        "themeCollection": {"baseTheme": {"name": "CY24SU10", "type": "SharedResources"}},
+        "resourcePackages": [{
+            "name": "SharedResources", "type": "SharedResources",
+            "items": [{"name": "CY24SU10", "path": "BaseThemes/CY24SU10.json", "type": "BaseTheme"}],
+        }],
+        "settings": {"useStylableVisualContainerHeader": True},
+    }, indent=2))
+
+    write(REPORT_DIR / "definition" / "pages" / "pages.json", json.dumps({
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/pagesMetadata/1.0.0/schema.json",
+        "pageOrder": [page], "activePageName": page,
+    }, indent=2))
+
+    write(REPORT_DIR / "definition" / "pages" / page / "page.json", json.dumps({
+        "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/1.4.0/schema.json",
+        "name": page, "displayName": "Overview",
+        "displayOption": "FitToPage", "height": 720, "width": 1280,
+    }, indent=2))
+
+    # ship the base theme the report references (else Desktop errors on it)
+    theme_src = PROJECT_DIR / "templates" / "CY24SU10.json"
+    theme_dst = REPORT_DIR / "StaticResources" / "SharedResources" / "BaseThemes" / "CY24SU10.json"
+    theme_dst.parent.mkdir(parents=True, exist_ok=True)
+    theme_dst.write_text(theme_src.read_text(encoding="utf-8"), encoding="utf-8")
 
     write(REPORT_DIR / ".platform", json.dumps({
         "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
