@@ -42,7 +42,7 @@ Outputs land in `exports/` as a star schema:
 | **`fact_body_measures.csv`** | 1 row/respondent | Weight, height, BMI, waist circumference + z-score/outlier flag per field |
 | **`fact_blood_pressure.csv`** | 1 row/respondent | Mean systolic/diastolic (averaged across up to 3 readings) + z-score/outlier flag |
 | **`fact_labs.csv`** | 1 row/respondent | Total/HDL/LDL cholesterol, triglycerides, fasting glucose, HbA1c, insulin + z-score/outlier flag per field |
-| **`fact_diagnoses.csv`** | 1 row/respondent | Self-reported diabetes, hypertension, high cholesterol, smoking, CHD, heart attack, stroke |
+| **`fact_diagnoses.csv`** | 1 row/respondent | Self-reported diabetes, hypertension, high cholesterol, smoking (raw fields + derived `smoking_status`: Never/Former/Current), CHD, heart attack, stroke |
 | **`fact_anomalies.csv`** | 1 row per flagged (respondent, field) | Long format: `SEQN`, `field`, `field_label`, `field_category`, `value`, `zscore` — every outlier a respondent has, one per row |
 
 All keyed on `SEQN` (the NHANES respondent ID). `fact_anomalies` is the one genuinely one-to-many relationship — a respondent can appear multiple times if several fields are flagged; every other fact table is one-to-one with `dim_respondents`.
@@ -64,9 +64,11 @@ Suggested visuals:
 
 ## Exploration notebook
 
-`notebooks/exploration.ipynb` reads the marts in `exports/` (it doesn't re-run the pipeline) and goes beyond the Power BI report with three additional analyses:
+`notebooks/exploration.ipynb` reads the marts in `exports/` (it doesn't re-run the pipeline) and goes beyond the Power BI report with several additional analyses:
 
-- **Regression** — OLS of fasting glucose on BMI, waist circumference, systolic BP, and age (`statsmodels`). The residuals are a second, independent outlier lens: respondents whose glucose is unusual *given* their other measurements, not just unusual relative to their peer group.
+- **Regression: glucose from body measures** — OLS of fasting glucose on BMI, waist circumference, systolic BP, and age (`statsmodels`). The residuals are a second, independent outlier lens: respondents whose glucose is unusual *given* their other measurements, not just unusual relative to their peer group.
+- **Regression: blood pressure by diagnosed condition** — same idea, but diabetes/high-cholesterol diagnosis and smoking status (derived from ever-smoked + current-smoking into Never/Former/Current) go in as categorical **factors**, comparing condition groups after controlling for BMI/waist/age. First real run found current smokers run +2.4 mmHg systolic higher than never-smokers (p < 0.001) even after controlling for body measures and age; diabetes/high-cholesterol diagnosis showed no significant independent BP effect once those covariates are in the model.
+- **Regression: predicting diabetes diagnosis from biomarkers** — flips the previous one around: diagnosis becomes the target (logistic regression) instead of a factor, predicted from BMI, waist, BP, age, total cholesterol, and fasting glucose, reported as odds ratios plus an ROC/AUC. First run: pseudo-R² of 0.44, fasting glucose by far the strongest predictor (unsurprising — it's diagnostic-adjacent), total cholesterol *negatively* associated (plausibly a statin-treatment effect on already-diagnosed diabetics, not a real protective effect — a good example of why these are exploratory associations, not causal claims).
 - **Clustering** — K-means (`scikit-learn`) on the fasting-subsample lab panel, with no diagnosis labels used as input. On the first real run this cleanly separated a ~790-person high-risk cluster (BMI 35.8, HbA1c 6.5%, 35% diabetes diagnosis rate) from two lower-risk clusters (~4% diagnosis rate each) — the diagnosis-rate gap is the after-the-fact sanity check that the clusters mean something clinically.
 - **Lean Six Sigma process capability** — Cp, Cpk, % out of spec, DPMO, and sigma level for BMI, blood pressure, glucose, HbA1c, and cholesterol, treating each clinical reference range as a spec limit (LSL/USL). Cpk is uniformly low/negative across the board, which is expected and itself the finding: a general-population health survey isn't a controlled process centered on "healthy," unlike what Cpk normally measures in manufacturing.
 

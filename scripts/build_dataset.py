@@ -177,6 +177,20 @@ def add_derived_fields(df: pd.DataFrame) -> pd.DataFrame:
     df["heart_attack"] = df["heart_attack_code"].map(YES_NO_MAP)
     df["stroke"] = df["stroke_code"].map(YES_NO_MAP)
 
+    # SMQ040 (current_smoking) only gets asked of people who said yes to
+    # SMQ020 (ever smoked 100+ cigarettes) — collapsing both into one
+    # three-level factor gives a cleaner category for regression/grouping
+    # than either raw field alone (never-smokers are NaN on SMQ040).
+    df["smoking_status"] = np.select(
+        [
+            df["smoked_100_cigarettes"] == "No",
+            df["current_smoking"].isin(["Every day", "Some days"]),
+            df["current_smoking"] == "Not at all",
+        ],
+        ["Never smoker", "Current smoker", "Former smoker"],
+        default=np.nan,
+    )
+
     df["mean_systolic"] = df[["systolic_1", "systolic_2", "systolic_3"]].mean(axis=1, skipna=True)
     df["mean_diastolic"] = df[["diastolic_1", "diastolic_2", "diastolic_3"]].mean(axis=1, skipna=True)
 
@@ -263,7 +277,7 @@ def build_fact_labs(df: pd.DataFrame) -> pd.DataFrame:
 def build_fact_diagnoses(df: pd.DataFrame) -> pd.DataFrame:
     return df[[
         "SEQN", "diabetes_diagnosis", "high_bp_diagnosis", "high_cholesterol_diagnosis",
-        "smoked_100_cigarettes", "current_smoking",
+        "smoked_100_cigarettes", "current_smoking", "smoking_status",
         "coronary_heart_disease", "heart_attack", "stroke",
     ]].copy()
 
