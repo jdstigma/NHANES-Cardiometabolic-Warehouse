@@ -1,0 +1,63 @@
+name: Pipeline CI
+
+# This isn't a data-refresh scheduler — NHANES only releases a new cycle
+# every ~2 years, so there's rarely new data to pull. The monthly schedule
+# exists purely to catch the CDC breaking a URL or renaming a variable
+# out from under us, independent of any code changes here.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 1 * *" # 06:00 UTC on the 1st of each month
+
+jobs:
+  build-and-validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the pipeline
+        run: python scripts/build_dataset.py
+
+      - name: Validate mart outputs
+        run: |
+          python - <<'PY'
+          import pandas as pd
+
+          dim = pd.read_csv("exports/dim_respondents.csv")
+          assert len(dim) > 10_000, f"dim_respondents has only {len(dim)} rows"
+
+          anomalies = pd.read_csv("exports/fact_anomalies.csv")
+          assert len(anomalies) > 0, "fact_anomalies is empty — outlier detection may be broken"
+
+          for mart in ["fact_body_measures", "fact_blood_pressure", "fact_labs", "fact_diagnoses"]:
+              df = pd.read_csv(f"exports/{mart}.csv")
+              assert set(dim["SEQN"]) >= set(df["SEQN"]), f"{mart} has SEQNs not in dim_respondents"
+
+          print("All mart validations passed.")
+          PY
+
+      - name: Run the exploration notebook
+        run: python -m papermill notebooks/exploration.ipynb notebooks/executed_exploration.ipynb
+
+      - name: Upload marts + executed notebook
+        uses: actions/upload-artifact@v4
+        with:
+          name: nhanes-marts
+          path: |
+            exports/*.csv
+            notebooks/executed_exploration.ipynb
+          retention-days: 30

@@ -6,3 +6,4 @@ __pycache__/
 *.pbix
 .env
 .DS_Store
+notebooks/executed_exploration.ipynb

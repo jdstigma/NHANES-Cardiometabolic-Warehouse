@@ -1,6 +1,6 @@
 # NHANES Cardiometabolic Warehouse
 
-Real (not synthetic) health survey data from the CDC's [NHANES](https://wwwn.cdc.gov/nchs/nhanes/) August 2021-August 2023 cycle, piped straight into a single respondent-level dataset for Power BI. No database, no Codespaces — one Python script does everything locally.
+Real (not synthetic) health survey data from the CDC's [NHANES](https://wwwn.cdc.gov/nchs/nhanes/) August 2021-August 2023 cycle, piped into a star-schema dataset for Power BI. No database, no Codespaces — one Python script builds everything locally; a notebook and CI workflow build on top of it for exploration and pipeline validation.
 
 ## Stack
 
@@ -59,3 +59,11 @@ Suggested visuals:
 - Bar chart of anomaly count by `field_category` (Body Measures / Blood Pressure / Labs) from `fact_anomalies`.
 - Scatter plot of `bmi` (from `fact_body_measures`) vs. `fasting_glucose` (from `fact_labs`), colored by `diabetes_diagnosis` (from `fact_diagnoses`), to see where undiagnosed outliers cluster.
 - Bar chart of `anomaly_rate` by `age_band` + `gender` from `nhanes_peer_group_summary.csv`.
+
+## Exploration notebook
+
+`notebooks/exploration.ipynb` reads the marts in `exports/` (it doesn't re-run the pipeline) and charts the same story as the Power BI report — BMI/BP/glucose distributions, anomaly breakdowns by category and age band, and the BMI-vs-glucose scatter — for anyone who wants the analysis without opening Power BI. Run `python scripts/build_dataset.py` first if `exports/` doesn't exist yet, then open the notebook normally in Jupyter/VS Code.
+
+## CI
+
+`.github/workflows/ci.yml` runs the full pipeline (script + notebook) on every push/PR and once a month via schedule, then validates the mart outputs (row counts, SEQN referential integrity) and uploads the CSVs + executed notebook as a build artifact. The monthly schedule isn't a data-refresh mechanism — NHANES only releases a new cycle every ~2 years — it exists to catch the CDC changing a URL or variable name independent of any code change here (this has already happened twice during development: a wrong subdomain, and a variable name case mismatch).
